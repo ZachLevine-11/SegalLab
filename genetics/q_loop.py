@@ -26,13 +26,16 @@ def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", us
             dataprs_prs_index = dataprs.set_index("PRS_class", drop=True)
         else:
             dataprs = preprocess_loader_data(loader=loader, use_clustering = use_clustering, duplicate_rows = duplicate_rows, keep_prs=True, index_is_10k=index_is_10k, usePath = usePath, prs_path = prs_path,  prs_from_loader = prs_from_loader, use_imputed = use_imputed, use_corrected = correct_for_age_gender, saveName = saveName, get_data_args = get_data_args, random_shuffle_prsLoader = random_shuffle_prsLoader, use_prsLoader = use_prsLoader)
+        if dataprs is None:
+            return None
         if test != "corrected_regression":
             dataprs_prs_index = dataprs.set_index("prs", drop=True)
         else:
             prs_excludify_map = get_exclusion_map()
             dataprs_prs_index = dataprs ##but the index is still 10K RegistrationCodes
             prs_id = dataprs_prs_index.columns.get_loc("prs")
-            toExclude = prs_excludify_map[prs_from_loader]
+            ##using the get method lets us do the dictionary lookup but also catch the keynotfound errors
+            toExclude = prs_excludify_map.get(prs_from_loader) if prs_excludify_map.get(prs_from_loader) is not None else []
             dataprs_prs_index = dataprs_prs_index.loc[list(map(lambda id: id not in toExclude, dataprs_prs_index.index)), :]
         fundict = {}
         ###We also care about the column names

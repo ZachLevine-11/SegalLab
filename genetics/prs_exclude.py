@@ -25,6 +25,8 @@ def excludeBasedOnPersonalMedicalConditions(whattheyhave, medData):
 
 def prsToExcluded_people(prsName, h_2_description_dict):
     prsmeaning = h_2_description_dict[prsName]
+    if type(prsmeaning) == float: ##then there's no matching meaning, because this is NA
+        return []
     if "Non-cancer illness code, self-reported: " in prsmeaning or "Diagnoses - main ICD10" in prsmeaning or "problem" in prsmeaning:
         whattheyhave = prsmeaning.split(": ")[-1]
         medData = MedicalConditionLoader().get_data()

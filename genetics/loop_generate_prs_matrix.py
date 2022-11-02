@@ -16,6 +16,9 @@ def loop_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = 
         print("now starting prs number: ", prs_id, "/" , str(len(prses)))
         #empty string matches positional argument for PRSpath, and the 0 fixes the prs id being an array
         fundict[prs_id] = q_loop(loader, index_is_10k, test, duplicate_rows, usePath, prs_path, prses[prs_id], use_clustering, use_imputed,correct_for_age_gender, saveName, get_data_args, tailsTest, random_shuffle_prsLoader, use_prsLoader)  ##test can be "t" for t test or "r" for regression))
+    for k,v in fundict.copy().items(): ##catch broken PRSes
+        if v is None:
+            del fundict[k]
     final_res = pd.concat(fundict.values(), axis=1)
     # final_res = final_res.loc[:,~final_res.columns.duplicated()] ##drop the duplicate indices we've accumulated atthis point
     print("Loader matrix finished!")

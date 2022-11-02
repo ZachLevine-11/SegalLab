@@ -43,7 +43,10 @@ def preprocess_loader_data(loader, index_is_10k, keep_prs = False, usePath = Tru
             prs = pd.read_csv(prs_path)[["PRS_class", "RegistrationCode"]]
     else:
         if use_prsLoader:
-            loaded_prs = PRSLoader().get_data().df.copy()[prs_from_loader]    #load prs with loader, assume that prs_from_loader is not none
+            try:
+                loaded_prs = PRSLoader().get_data().df.copy()[prs_from_loader]    #load prs with loader, assume that prs_from_loader is not none
+            except KeyError:
+                return None
         else:
             loaded_prs = pd.read_csv("/net/mraid08/export/jasmine/zach/scores/score_results/SOMAscan/scores_all_raw.csv").set_index("RegistrationCode")[prs_from_loader]    #load prs with loader, assume that prs_from_loader is not none
         if random_shuffle_prsLoader:

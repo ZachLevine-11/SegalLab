@@ -6,7 +6,11 @@ from scores_work import stack_matrices_and_bonferonni_correct
 import pandas as pd
 import subprocess
 from LabData.DataLoaders.PRSLoader import PRSLoader
+from scores_work import stack_matrices_and_bonferonni_correct
 import csv
+from scipy.stats.stats import pearsonr
+from statsmodels.stats.multitest import multipletests
+
 
 ##We need a specific conda installation for this so it can't run on the queue or with shellcommandexecute
 def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
@@ -86,10 +90,28 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
                 corr = contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[0]
                 if p != "nan" and corr != "nan" and p != 'nan (nan) (h2  out of bounds)' and corr != 'nan (nan) (h2  out of bounds)':
                     res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr)}
-    return pd.DataFrame(res).T
+    res = pd.DataFrame(res).T
+    res["P"] = multipletests(pvals = res["P"], method = "bonferroni")[1]
+    return res
+
+
+def gen_feature_corr(stackmat, genmat):
+    inversedict = PRSLoader().get_data().df_columns_metadata.reset_index().set_index("h2_description").phenotype_code.to_dict()
+    for k,v in inversedict.items():
+        inversedict[k] = "pvalue_" + inversedict[k]
+    genmat_dict = genmat.to_dict()["P"]
+    stackmat_dict = {}
+    for k,v in genmat_dict.items():
+        stackmat_dict[k] = float(stackmat.loc[k[0]].T.loc[inversedict[k[1]]].values)
+    combined = pd.concat([pd.Series(stackmat_dict), pd.Series(genmat_dict)], 1)
+    combined.columns = ["feature_space", "genetic_space"]
+    combined = combined.dropna()
+    return combined, pearsonr(combined.iloc[:, 1], combined.iloc[:, 0])
+
 
 if __name__ == "__main__":
     do_all = False
     if do_all:
         compute_all_cross_corr()
-    res = read_all_ldsc()
+    res_gen = read_all_ldsc()
+    res_feature = stack_matrices_and_bonferonni_correct(fillwithNA=True)

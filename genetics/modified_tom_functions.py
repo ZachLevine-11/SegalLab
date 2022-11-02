@@ -89,8 +89,7 @@ def correct_all_covariates(loader, cluster=True, use_imputed_version = True, ind
 def save(result, filename):
     result.to_csv("/net/mraid08/export/jasmine/zach/prs_associations/" + filename)
 
-##Just get the prses we want
-def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv"):
+def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv", include_all = False):
     # Load all the PRS from 10K
     if cached: ##Much faster
         cached_list = list(pd.read_csv(dir + fileName).iloc[:, 1]) ##column 0 holds an aribitrary index, column 1 has the list we care about
@@ -99,6 +98,8 @@ def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_asso
     # removing duplicated index
     mydata.df = mydata.df.loc[:, ~mydata.df.columns.duplicated()]
     # loading metadata for PRS
+    if include_all: ##include all columns in analysis
+        return list(mydata.df.columns)
     metadata_table = pd.read_excel(
         '/net/mraid08/export/genie/LabData/Data/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/UKBB_GWAS_Imputed_v3-File_Manifest_Release_20180731.xlsx',
         sheet_name='Manifest 201807', engine='openpyxl')
@@ -478,5 +479,5 @@ def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_asso
     siguniqe = list(dict.fromkeys(sig))
     return(siguniqe)
 
-def write_getsigunique_cache(dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv"):
-    pd.Series(getsigunique(cached = False)).to_csv(dir + fileName)
+def write_getsigunique_cache(dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv", include_all = False):
+    pd.Series(getsigunique(cached = False, include_all = include_all)).to_csv(dir + fileName)

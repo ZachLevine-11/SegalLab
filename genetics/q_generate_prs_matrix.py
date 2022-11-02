@@ -11,7 +11,7 @@ from modified_tom_functions import getsigunique
 def q_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = "mean", use_clustering = True, use_imputed = True, correct_for_age_gender = False, saveName = None, get_data_args = None, tailsTest = "rightLeft", usePath = False, prs_path = "/home/zacharyl/Desktop/intermed_prs.csv", random_shuffle_prsLoader = False, use_prsLoader = True):
     os.chdir(gencove_logs_path)
     #sethandlers()
-    with qp(jobname="q", max_u=200, max_r=200, _suppress_handlers_warning =True) as q:
+    with qp(jobname="q", max_u=1000, max_r=1000, _suppress_handlers_warning =True) as q:
         q.startpermanentrun()
         ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
         if use_prsLoader:
@@ -27,6 +27,9 @@ def q_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = "me
             fundict[prs_id] = q.method(q_loop, (loader, index_is_10k, test, duplicate_rows, usePath, prs_path, prses[prs_id], use_clustering, use_imputed, correct_for_age_gender, saveName, get_data_args, tailsTest, random_shuffle_prsLoader, use_prsLoader))  ##test can be "t" for t test or "r" for regression))
             print("now onto prs: ", prs_id)
         fundict = {k: q.waitforresult(v) for k, v in fundict.items()}
+    for k,v in fundict.copy().items(): ##catch broken PRSes, don't iterate over original dictionary
+        if v is None:
+            del fundict[k]
     final_res = pd.concat(fundict.values(), axis = 1)
     #final_res = final_res.loc[:,~final_res.columns.duplicated()] ##drop the duplicate indices we've accumulated atthis point
     return final_res
