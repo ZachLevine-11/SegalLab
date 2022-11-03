@@ -11,10 +11,13 @@ import csv
 from scipy.stats.stats import pearsonr
 from statsmodels.stats.multitest import multipletests
 
-
 ##We need a specific conda installation for this so it can't run on the queue or with shellcommandexecute
 def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
-    subprocess.call("/bin/csh -c conda activate ldsc && /bin/csh -c python2" + mainpath + "ldsc-master/ldsc.py --rg "+ mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz --ref-ld-chr /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/ --w-ld-chr " + mainpath + "eur_w_ld_chr/ --out " + mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1] + " --no-check-alleles; /bin/csh -c conda deactivate", shell=True)
+    rg_arg = mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz"
+    second_arg = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/"
+    third_arg =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/"
+    fourth_arg = mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1]
+    subprocess.call(["~/PycharmProjects/genetics/do_ldsc_cmd.sh" + " " + rg_arg + " " + second_arg + " " + third_arg + " " + fourth_arg], shell=True)
 
 ##not using clumped files for now
 def get_tenk_gwas_loc(pheno_name, loader):
@@ -45,7 +48,10 @@ def read_snp_dictionary():
 
 def prepare_tenk_gwas(tenk_fname, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
     N = pd.read_csv(tenk_fname, sep = "\t")["OBS_CT"][0]
-    subprocess.call("cd /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/ldsc-master && conda init && conda env create --file environment.yml ; source activate ldsc && " + "ldsc-master/munge_sumstats.py --sumstats " + tenk_fname + " --out " + mainpath + "tenk_gwases_munged/" + tenk_fname.split("/")[-1].split("batch0.")[-1].split(".glm.linear")[0] + " --a2 AX --snp ID --N " + str(N) + "; conda deactivate", shell=True) ##remember that output only goes to the cmd line process running pycharm
+    first_arg = tenk_fname
+    second_arg =  mainpath + "tenk_gwases_munged/" + tenk_fname.split("/")[-1].split("batch0.")[-1].split(".glm.linear")[0]
+    third_arg = str(N)
+    subprocess.call(["~/PycharmProjects/genetics/prepare_tenk_gwas.sh" + " " + first_arg + " " + second_arg + " " + third_arg], shell=True)
 
 def prepare_ukbb_gwas(ukbb_fname, snp_dict, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
     temp = pd.read_csv(ukbb_fname, sep = "\t")
@@ -53,7 +59,9 @@ def prepare_ukbb_gwas(ukbb_fname, snp_dict, mainpath = "/net/mraid08/export/jasm
     ##replace the original col with rsids
     temp["variant"]  = pd.Series(list(map(lambda thestr: thestr.replace("[b37]", ":").replace(",", ":"), temp.variant))).apply(snp_dict.get)
     temp.to_csv(mainpath + "ukbb_gwases_with_rsid/" + ukbb_fname.split("/")[-1].split(".")[0] + ".csv", sep = "\t", quotechar = "", quoting = csv.QUOTE_NONE, index = False)
-    subprocess.call("cd /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/ldsc-master && conda init && conda env create --file environment.yml ; source activate ldsc && " + 'ldsc-master/munge_sumstats.py --sumstats ' + mainpath + "ukbb_gwases_with_rsid/" + ukbb_fname.split("/")[-1].split(".")[0]  + ".csv" + ' --out ' + mainpath + 'ukbb_gwases_munged/' + ukbb_fname.split("/")[-1].split(".")[0] + ' --snp variant --N 361194 --a1 ref_allele --a2 alt_allele; conda deactivate', shell=True)
+    first_arg = mainpath + "ukbb_gwases_with_rsid/" + ukbb_fname.split("/")[-1].split(".")[0]  + ".csv"
+    second_arg = mainpath + 'ukbb_gwases_munged/' + ukbb_fname.split("/")[-1].split(".")[0]
+    subprocess.call(["~/PycharmProjects/genetics/prepare_ukbb_gwas.sh" + " " + first_arg + " " + second_arg], shell=True)
 
 def compute_all_cross_corr():
     stacked = stack_matrices_and_bonferonni_correct()
