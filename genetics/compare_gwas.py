@@ -14,7 +14,7 @@ from statsmodels.stats.multitest import multipletests
 
 ##We need a specific conda installation for this so it can't run on the queue or with shellcommandexecute
 def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
-    subprocess.call("cd /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/ldsc-master && conda init && conda env create --file environment.yml ; source activate ldsc && ldsc-master/ldsc.py --rg "+ mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz --ref-ld-chr /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/ --w-ld-chr " + mainpath + "eur_w_ld_chr/ --out " + mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1] + " --no-check-alleles; conda deactivate", shell = True)
+    subprocess.call("/bin/csh -c conda activate ldsc && /bin/csh -c python2" + mainpath + "ldsc-master/ldsc.py --rg "+ mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz --ref-ld-chr /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/ --w-ld-chr " + mainpath + "eur_w_ld_chr/ --out " + mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1] + " --no-check-alleles; /bin/csh -c conda deactivate", shell=True)
 
 ##not using clumped files for now
 def get_tenk_gwas_loc(pheno_name, loader):
