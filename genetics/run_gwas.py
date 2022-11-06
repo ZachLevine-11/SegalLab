@@ -36,6 +36,7 @@ from functools import reduce
 import matplotlib.pyplot as plt
 from itertools import chain, combinations
 import sys
+from ieugwaspy import phewas
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Eran said to skip bloodtests, gutmb, and metabolites
@@ -285,22 +286,22 @@ def make_plink1_command(pheno_name):
     cmd = plink19_bin + ' --bfile /net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + pheno_name + '_pheno.txt' + '--pheno-name' +  pheno_name + '--linear no-x-sex --allow-no-sex --noweb --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + pheno_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-number 1-12'
     return cmd
 
-def make_plink2_command(pheno_name, use_short_names = False, short_names_table_fname = short_name_dict_fname, batched = True, i = 0, use_pfilter = True, ldmethod = "clump"):
+def make_plink2_command(pheno_name, use_short_names = False, short_names_table_fname = short_name_dict_fname, batched = True, i = 0, use_pfilter = True, ldmethod = "clump", howmanyPCs = 10):
     if ldmethod == "clump":
         bfile_loc = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_qc_custom"
     else:
         bfile_loc = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_extra_qc_extra_before_king"
     if batched and use_pfilter:
-        cmd = plink2_bin +' --bfile ' + bfile_loc  + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-13 --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin +' --bfile ' + bfile_loc  + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     elif batched and not use_pfilter:
-        cmd = plink2_bin +' --bfile '+ bfile_loc + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-13 --variance-standardize'
+        cmd = plink2_bin +' --bfile '+ bfile_loc + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize'
     elif not use_short_names:
-        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + pheno_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + pheno_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + pheno_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-13 --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + pheno_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + pheno_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + pheno_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     else:
         short_names_df = pd.read_csv(short_names_table_fname)
         short_names_df.columns = ["long", "short"]
         short_file_name = short_names_df.loc[short_names_df["long"] == pheno_name, "short"].values[0]  ##the file is named with a short name, which is also the name of the phenotype (column) inside it
-        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + short_file_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + short_file_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + short_file_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-13 --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + short_file_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + short_file_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + short_file_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     return cmd
 
 def update_covariates(dir="/net/mraid08/export/jasmine/zach/height_gwas/", status_table = None, keep_fid = False):
@@ -337,17 +338,17 @@ def existsAlready(colName, resultDir = "/net/mraid08/export/jasmine/zach/height_
         potential_path = resultDir + short_file_name + "." + short_file_name + ".glm.linear" ##the covariate name is repeated in the output, so do this to properly detect it
     return isfile(potential_path)
 
-def all_GWAS(overwrite = True, batched = True, num_batches = 1, use_pfilter = True, ldmethod = "clump"):
+def all_GWAS(overwrite = True, batched = True, num_batches = 1, use_pfilter = True, ldmethod = "clump", howmanyPCs = 10):
     os.chdir("/net/mraid08/export/mb/logs/")
     if not batched:
         for loader in loaders_list:
             df = read_loader_in(loader)
             for col in df.columns:
                 if overwrite or not overwrite and not existsAlready(col): ##don't use the column name as the job name because of the special characters in it
-                    run_plink2(make_plink2_command(col, use_short_names = True, ldmethod = ldmethod), "gwas", required_memory_gb("/net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc.bed"))
+                    run_plink2(make_plink2_command(col, use_short_names = True, ldmethod = ldmethod, howmanyPCs = howmanyPCs), "gwas", required_memory_gb("/net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc.bed"))
     else:
         for i in range(num_batches):
-            run_plink2(make_plink2_command(pheno_name = None, batched = True, i = i, use_pfilter = use_pfilter, ldmethod = ldmethod), "gwas", required_memory_gb("/net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc.bed"), threads = 32)
+            run_plink2(make_plink2_command(pheno_name = None, batched = True, i = i, use_pfilter = use_pfilter, ldmethod = ldmethod, howmanyPCs = howmanyPCs), "gwas", required_memory_gb("/net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc.bed"), threads = 32)
     print("Ran all gwases")
 
 def make_unique_plink_bins():
@@ -547,23 +548,40 @@ def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, 
     print("Phenos share on average " + str(100*phenos_mean_prop_shared) + "% of total significant hits")
     return numHits, hits, phenos_mean_prop_shared, common_intersection
 
-def merge_with_pheno_team():
-    numhits, hits, meanshared, comm = summarize_gwas(use_clumped = True, onlythesecols = read_loader_in(CGMLoader).columns)
-    theirs = pd.read_csv("~/Desktop/pheno_cgm_assoc.csv")
-    theirs["phenotype"] = list(map(lambda thestr: thestr.lower().replace(".", ""), theirs["phenotype"]))
+def stack_our_gwases(use_clumped = True, onlythesecols = None):
+    numhits, hits, meanshared, comm = summarize_gwas(use_clumped=use_clumped, onlythesecols=onlythesecols)
     for k, v in hits.items():
         hits[k]["pheno"] = k.split("batch0.")[1].split(".clumped")[0].lower()
     ans = pd.concat(hits.values)
     ans = ans.rename({"P": "p_ours"}, axis = 1)
+    ans = ans.sort_values("p_ours")
+    return ans
+
+def merge_with_pheno_team(use_clumped = True):
+    ans = stack_our_gwases(use_clumped = use_clumped, onlythesecols = read_loader_in(CGMLoader).columns)
+    theirs = pd.read_csv("~/Desktop/pheno_cgm_assoc.csv")
+    theirs["phenotype"] = list(map(lambda thestr: thestr.lower().replace(".", ""), theirs["phenotype"]))
     theirs = theirs.rename({"P": "p_theirs"}, axis = 1)
     tog = pd.merge(ans, theirs, left_on  = ["SNP", "pheno"], right_on = ["SNP", "phenotype"], how = "inner")
+    return tog
+
+def plot_with_pheno_team():
+    tog = merge_with_pheno_team()
     groups = tog.groupby("phenotype")
-    plt.figure(figsize=(8, 8))
     for name, group in groups:
         plt.plot(group.p_ours, group.p_theirs, marker = "o", linestyle = "", label = name)
-    plt.legend()
-    plt.show()
-    return tog
+        plt.legend()
+        plt.show()
+
+def match_our_hits(use_clumped = True, onlythesecols = None, batch_size = 1):
+    ours_stacked = stack_our_gwases(use_clumped = use_clumped, onlythesecols = onlythesecols)
+    ours_stacked_sig = ours_stacked.loc[ours_stacked.p_ours < 5*10**(-8),:]
+    jsons = pd.Series(np.zeros(len(ours_stacked_sig)//batch_size))
+    for batchNum in range(len(ours_stacked_sig)//batch_size):
+        batch_ids = range(batchNum*batch_size, min((batchNum+1)*batch_size, len(ours_stacked_sig)), 1)
+        jsons[batchNum] = phewas(ours_stacked_sig["SNP"][batch_ids].unique())
+    res = pd.concat(jsons.apply(lambda thejson: pd.DataFrame(thejson)))
+    return res
 
 def all_loaders_plot(loaders_list = loaders_list, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"):
     ##numhits is a dict that maps loader:phenos:numassoc_sig
@@ -678,10 +696,11 @@ if __name__ == "__main__":
     do_renaming  = False
     summarize = False
     ldmethod = "clump"
-    do_clumping = False
+    do_clumping = True
     redo_genetics_qc = False
     use_pfilter = False
     pass_cmd = False
+    howmanyPCs = 5
     redo_get_duplicate_ids = False ##for clumping, right now it's just the ID "."
     if redo_genetics_qc:
         genetics_qc()
@@ -694,7 +713,7 @@ if __name__ == "__main__":
     if do_GWAS:
         ##The plink data can't be pickled, so get rid of it to avoid q.startpermanentrun errors
         plink_data_loaded = None
-        all_GWAS(overwrite = True, batched = do_batched, num_batches = lenbatches, use_pfilter = use_pfilter, ldmethod = ldmethod)
+        all_GWAS(overwrite = True, batched = do_batched, num_batches = lenbatches, use_pfilter = use_pfilter, ldmethod = ldmethod, howmanyPCs=howmanyPCs)
     if redo_get_duplicate_ids:
         get_duplicate_ids()
     if ldmethod == "clump" and do_clumping:
