@@ -672,7 +672,7 @@ def clump(qc_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_e
                         gwas.columns = ["CHROM", "POS", "SNP", *gwas.columns[range(3, len(gwas.columns))]]
                         gwas.to_csv(gwas_results_dir + "clumpheader" + long_filename,  index = False, header = True, sep = "\t")
                         clump_cmd = plink19_bin + ' --bfile ' + qc_dir + 'allsamples_qc_custom --clump ' + gwas_results_dir + "clumpheader" + long_filename + ' --exclude ' + qc_dir + duplicate_id_snps_fname + ' --out ' + clump_dir + long_filename.split(".glm.linear")[0]
-                        run_plink1(clump_cmd, "clump", required_memory_gb("/net/mraid08/export/genie/10K/genetics/Gencove/allsamples_qc.bed"))
+                        run_plink1(clump_cmd, "clump", required_memory_gb("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_qc_custom.bed"))
 
 
 if __name__ == "__main__":
@@ -696,11 +696,11 @@ if __name__ == "__main__":
     do_renaming  = False
     summarize = False
     ldmethod = "clump"
-    do_clumping = True
+    do_clumping = False
     redo_genetics_qc = False
     use_pfilter = False
     pass_cmd = False
-    howmanyPCs = 5
+    howmanyPCs = 10
     redo_get_duplicate_ids = False ##for clumping, right now it's just the ID "."
     if redo_genetics_qc:
         genetics_qc()

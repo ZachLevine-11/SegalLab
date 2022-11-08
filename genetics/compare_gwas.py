@@ -102,7 +102,6 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
     res["P"] = multipletests(pvals = res["P"], method = "bonferroni")[1]
     return res
 
-
 def gen_feature_corr(stackmat, genmat):
     inversedict = PRSLoader().get_data().df_columns_metadata.reset_index().set_index("h2_description").phenotype_code.to_dict()
     for k,v in inversedict.items():
@@ -115,7 +114,6 @@ def gen_feature_corr(stackmat, genmat):
     combined.columns = ["feature_space", "genetic_space"]
     combined = combined.dropna()
     return combined, pearsonr(combined.iloc[:, 1], combined.iloc[:, 0])
-
 
 if __name__ == "__main__":
     do_all = False
