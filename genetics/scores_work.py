@@ -110,7 +110,7 @@ def make_test_all_loaders(loaders = None, loop = False, which = "PQTLS", test = 
             res_m_loader.to_csv(raw_matrices_save_path_prs + justname)
             print("Wrote: " + raw_matrices_save_path_prs + justname)
 
-def stack_matrices_and_bonferonni_correct(results_dir = raw_matrices_save_path_prs, fillwithNA = True):
+def stack_matrices_and_bonferonni_correct(results_dir = raw_matrices_save_path_prs, fillwithNA = True, orderbySig = False):
     all_results_files = [f for f in os.listdir(results_dir) if isfile(join(results_dir, f))]
     dfs = []
     loader_col = []
@@ -128,10 +128,13 @@ def stack_matrices_and_bonferonni_correct(results_dir = raw_matrices_save_path_p
     res_corrected.columns = res.columns
     if fillwithNA:
         res_corrected = res_corrected.mask(res_corrected > 0.05, np.nan) ##only store sig assocs
-        sigMap = {}
-        for pheno,loader in res_corrected.index:
-            sigMap[(pheno, loader)] = res_corrected.loc[res_corrected.index.get_level_values(0) == pheno, :].isna().sum().sum()
-        return res_corrected.loc[pd.Series(sigMap).sort_values().to_dict().keys(),:] ##return rows (phenotypes) sorted in order of most to least significant associations
+        if orderbySig: ##very computationally costly
+            sigMap = {}
+            for pheno,loader in res_corrected.index:
+                sigMap[(pheno, loader)] = res_corrected.loc[res_corrected.index.get_level_values(0) == pheno, :].isna().sum().sum()
+            return res_corrected.loc[pd.Series(sigMap).sort_values().to_dict().keys(),:] ##return rows (phenotypes) sorted in order of most to least significant associations
+        else:
+            return res_corrected
     else:
         return res_corrected
 
@@ -205,7 +208,7 @@ if __name__ == "__main__":
     min_subject_threshold = 2000
     most_frequent_val_max_freq = 0.95
     redo_collect_correct_pqtls = False
-    redo_association_tests_prs = True
+    redo_association_tests_prs = False
     redo_association_tests_pqtl = False
     redo_prs_pqtl_associations = False
     correct_beforehand = False ##keep off to use the model with built in correction for age, gender, and PCS

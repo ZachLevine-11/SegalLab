@@ -36,16 +36,10 @@ from functools import reduce
 import matplotlib.pyplot as plt
 from itertools import chain, combinations
 import sys
-from ieugwaspy import phewas
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
-##Eran said to skip bloodtests, gutmb, and metabolites
-
-##ask what is HormonalStatus
-##check whether ABILoader is happening in UKBB, if it is drop it
-##try to recreate their results
-
-loaders_list = [SerumMetabolomicsLoader, GutMBLoader, CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
+##Gut MB and Metab get done separately
+loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
 
 def run_plink1(plink_cmd, jobname, mem_required_gb, threads=32, queue=qp):
     os.chdir(qp_running_dir)
@@ -492,7 +486,7 @@ def generate_hybrid_index(hits_df, cols = ["CHROM", "POS", "REF", "ALT"]):
     ##convert each column to a string and then concatenate them
     return set(hits_df[cols].apply(lambda col: col.astype(str)).apply(":".join, axis = 1))
 
-def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, use_rsid = True, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", clump_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_clumped/", singleBatch = True):
+def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", clump_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_clumped/", singleBatch = True):
     if use_clumped:
         containing_dir = clump_dir
         sep = "\s+|\t+|\s+\t+|\t+\s+"
@@ -509,6 +503,7 @@ def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, 
         else:
             all_gwases = list(set(all_gwases).intersection(set(list(map(lambda res_name: "batch0." + res_name + ".clumped", onlythesecols)))))
     hits = {}
+    rank = dict(zip([long_filename.split(".glm.linear")[0] for long_filename in all_gwases], [0 for gwas in all_gwases]))
     i = 1
     for long_filename in all_gwases:
         if (".clumped" in long_filename and use_clumped) or (not use_clumped and ".glm.linear" in long_filename):
@@ -519,37 +514,15 @@ def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, 
                     hits[long_filename.split(".glm.linear")[0]] = gwas
                 else:
                     hits[long_filename.split(".glm.linear")[0]] = gwas.loc[gwas.P < (5*10**(-8))/numGwases,:]
+                rank[long_filename.split(".glm.linear")[0]] = len(gwas.loc[gwas.P < (5*10**(-8))/numGwases,:])
             print(str(i) + "/" + str(len(all_gwases)))
         i += 1
     hits = pd.Series(hits)
-    ##all the hits for each pheno
-    numHits = {}
-    ##the snps for suspicious phenos
-    phenos_mean_prop_shared = 0
-    phenos_snps = {}
-    for key in hits.index.values:
-        numHits[key] = len(hits[key])
-        ##hybrid index is "CHROM":"POS":"REF":"ALT"
-        ##if a phenotype has a suspicous number of hits, store which hits it has
-        if not use_rsid:
-            phenos_snps[key] = generate_hybrid_index(hits[key])
-        elif use_rsid and use_clumped:
-            phenos_snps[key] = set(hits[key].SNP)
-        else:
-            phenos_snps[key] = set(hits[key].ID)
-    ##see which hits are common between the suspicious phenotypes
-    common_intersection = set.intersection(*phenos_snps.values())
-    numCommon = len(common_intersection)
-    ##see which proportion of snps for each phenotype are common
-    for suspicious_phenos in phenos_snps.keys():
-        if len(hits[suspicious_phenos]) != 0:
-            phenos_mean_prop_shared += numCommon/len(hits[suspicious_phenos])
-            phenos_mean_prop_shared /= len(phenos_snps.keys())
-    print("Phenos share on average " + str(100*phenos_mean_prop_shared) + "% of total significant hits")
-    return numHits, hits, phenos_mean_prop_shared, common_intersection
+    rank = pd.Series(rank).sort_values(ascending = False)
+    return hits, rank
 
 def stack_our_gwases(use_clumped = True, onlythesecols = None):
-    numhits, hits, meanshared, comm = summarize_gwas(use_clumped=use_clumped, onlythesecols=onlythesecols)
+    hits, rank = summarize_gwas(use_clumped=use_clumped, onlythesecols=onlythesecols)
     for k, v in hits.items():
         hits[k]["pheno"] = k.split("batch0.")[1].split(".clumped")[0].lower()
     ans = pd.concat(hits.values)
@@ -572,30 +545,6 @@ def plot_with_pheno_team():
         plt.plot(group.p_ours, group.p_theirs, marker = "o", linestyle = "", label = name)
         plt.legend()
         plt.show()
-
-def match_our_hits(use_clumped = True, onlythesecols = None, batch_size = 1):
-    ours_stacked = stack_our_gwases(use_clumped = use_clumped, onlythesecols = onlythesecols)
-    ours_stacked_sig = ours_stacked.loc[ours_stacked.p_ours < 5*10**(-8),:]
-    jsons = pd.Series(np.zeros(len(ours_stacked_sig)//batch_size))
-    for batchNum in range(len(ours_stacked_sig)//batch_size):
-        batch_ids = range(batchNum*batch_size, min((batchNum+1)*batch_size, len(ours_stacked_sig)), 1)
-        jsons[batchNum] = phewas(ours_stacked_sig["SNP"][batch_ids].unique())
-    res = pd.concat(jsons.apply(lambda thejson: pd.DataFrame(thejson)))
-    return res
-
-def all_loaders_plot(loaders_list = loaders_list, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"):
-    ##numhits is a dict that maps loader:phenos:numassoc_sig
-    ###hits maps loader:phenos:assocs_sig
-    hits_dict = {}
-    numhits_dict = {}
-    for loader in loaders_list:
-        numhits_dict[str(loader).split(".")[2]], hits_dict[str(loader).split(".")[2]],throwaway = summarize_gwas(filter_by_loader=loader, containing_dir=containing_dir)
-        plotting_data = np.array(list(numhits_dict[str(loader).split(".")[2]].values()))
-        plt.hist(plotting_data, bins = 100)
-        plt.title("Sigs for loader: " + str(loader).split(".")[-2])
-        plt.savefig("/home/zacharyl/Desktop/gwasFigures/" + str(loader).split(".")[-2] + ".jpg")
-        plt.close()
-    return numhits_dict, hits_dict
 
 ##prebuilt qc pipelines
 def genetics_qc(sexcheck = False, ldmethod = "clump"):
@@ -674,7 +623,6 @@ def clump(qc_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_e
                         clump_cmd = plink19_bin + ' --bfile ' + qc_dir + 'allsamples_qc_custom --clump ' + gwas_results_dir + "clumpheader" + long_filename + ' --exclude ' + qc_dir + duplicate_id_snps_fname + ' --out ' + clump_dir + long_filename.split(".glm.linear")[0]
                         run_plink1(clump_cmd, "clump", required_memory_gb("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_qc_custom.bed"))
 
-
 if __name__ == "__main__":
     ##avoid breaking scores_work and other modules that use the queue and import this file
     sethandlers()
@@ -694,9 +642,8 @@ if __name__ == "__main__":
     do_GWAS = False
     lenbatches = 1
     do_renaming  = False
-    summarize = False
     ldmethod = "clump"
-    do_clumping = False
+    do_clumping = True
     redo_genetics_qc = False
     use_pfilter = False
     pass_cmd = False
