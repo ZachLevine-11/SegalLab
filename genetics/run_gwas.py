@@ -39,7 +39,8 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
+#loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
+loaders_list = [SerumMetabolomicsLoader]
 
 def run_plink1(plink_cmd, jobname, mem_required_gb, threads=32, queue=qp):
     os.chdir(qp_running_dir)
@@ -162,11 +163,11 @@ def fix_norm_dist_capping_type_conversion(notCappedDf, cappedDf):
             cappedDf[cappedDf.columns[i]] = cappedDf[cappedDf.columns[i]].astype(df_col_types_before_norm_dist_capping[i])
     return cappedDf
 
-def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sample_size_frac = 0.95, remove_sigmas = 5): ##Call data for a loader and set the index of the df to be the 10k RegistrationCodes if it isn't already
+def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sample_size_frac = 0.95, remove_sigmas = 5, do_log_metab = False): ##Call data for a loader and set the index of the df to be the 10k RegistrationCodes if it isn't already
     ##Because CGMLoader needs these as numbers
     norm_dist_capping = {"sample_size_frac": sample_size_frac, "remove_sigmas": remove_sigmas}
     if loader == SerumMetabolomicsLoader:
-        df = fix_norm_dist_capping_type_conversion(loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering", study_ids=["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy(), loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering", study_ids=["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
+        df = fix_norm_dist_capping_type_conversion(loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy(), loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
         df["RegistrationCode"] = list(map(lambda serum: '10K_' + serum.split('_')[0], df.index.values))
         df = df.set_index("RegistrationCode")
     elif loader == GutMBLoader:
@@ -252,12 +253,13 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
     if loader == GutMBLoader: ##log10 correction, detection limit is 10^(-4), so exclude below that
         for col in df.columns:
             df[col] = df[col].apply(lambda val: np.log10(val) if np.log10(val) > -4 else None)
-    if loader == SerumMetabolomicsLoader:
-        for col in df.columns: ##no cutoff here
-            df[col] = df[col].apply(lambda val: np.log10(val))
-            df.loc[df[col] == -np.inf, col] = None
-    df = df * 1  ##Multiply by one to map booleans to integers as 1:True, 0:False
-    ##better than astype int because we can keep floats
+    if do_log_metab: ##The RT cluster is already logged, don't do it again
+        if loader == SerumMetabolomicsLoader:
+            for col in df.columns: ##no cutoff here
+                df[col] = df[col].apply(lambda val: np.log10(val))
+                df.loc[df[col] == -np.inf, col] = None
+        df = df * 1  ##Multiply by one to map booleans to integers as 1:True, 0:False
+        ##better than astype int because we can keep floats
     return df
 
 def extract_all_pheno(loader, dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/"):
@@ -634,16 +636,16 @@ if __name__ == "__main__":
     do_batched = True
     min_subject_threshold = 2000
     singleBatch = True ##much faster
-    redo_setup = False
+    redo_setup = True
     ##Can use the close relations pruning list from a previous GWAS run
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
-    remake_batches = False
-    do_GWAS = False
+    remake_batches = True
+    do_GWAS = True
     lenbatches = 1
     do_renaming  = False
     ldmethod = "clump"
-    do_clumping = True
+    do_clumping = False
     redo_genetics_qc = False
     use_pfilter = False
     pass_cmd = False

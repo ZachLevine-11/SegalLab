@@ -102,6 +102,7 @@ def ldsc_pipeline(tenk_fname, ukbb_fname, already_munged_tenk, already_munged_uk
         print("Finished ldsc")
 
 def compute_all_cross_corr(onlySiginAssoc = False):
+    broken_tenk_phenos = list(pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").pheno.values)
     os.chdir(qp_running_dir)
     res = {}
     with qp(jobname="q") as q:
@@ -112,11 +113,12 @@ def compute_all_cross_corr(onlySiginAssoc = False):
             stacked = stack_matrices_and_bonferonni_correct(fillwithNA=True)
             pairs = returnSigGwasPairs(stacked, onlySiginAssoc) ##pairs of corresponding filenames for the significant entries
             for tenk_fname, ukbb_fname in pairs:
-                res[(tenk_fname, ukbb_fname)] = q.method(ldsc_pipeline, (tenk_fname, ukbb_fname, already_munged_tenk, already_munged_ukbb))
+                if tenk_fname not in broken_tenk_phenos:
+                    res[(tenk_fname, ukbb_fname)] = q.method(ldsc_pipeline, (tenk_fname, ukbb_fname, already_munged_tenk, already_munged_ukbb))
         else:
             stacked = stack_matrices_and_bonferonni_correct(fillwithNA=False)
             for tenk_pheno in stacked.index.get_level_values(0):
-                if tenk_pheno != "prs": ##Ignore this dummy column holding names
+                if tenk_pheno != "prs" and get_tenk_gwas_loc(tenk_pheno) not in broken_tenk_phenos: ##Ignore this dummy column holding names
                     for ukbb_pheno in stacked.columns:
                         res[get_tenk_gwas_loc(tenk_pheno), get_ukbb_gwas_loc(ukbb_pheno)]  = q.method(ldsc_pipeline, (get_tenk_gwas_loc(tenk_pheno), get_ukbb_gwas_loc(ukbb_pheno), get_ukbb_gwas_loc(ukbb_pheno), already_munged_ukbb))
         res = {k: q.waitforresult(v) for k, v in res.items()}

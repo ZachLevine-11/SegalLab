@@ -16,6 +16,7 @@ import os
 from scipy.cluster.hierarchy import fcluster
 from scipy.cluster.hierarchy import dendrogram
 from scipy.spatial.distance import squareform
+import seaborn as sns
 ##Need these imported for the loader_assoc_plot
 from LabData.DataLoaders.BloodTestsLoader import BloodTestsLoader
 from LabData.DataLoaders.BodyMeasuresLoader import BodyMeasuresLoader
@@ -34,6 +35,7 @@ from LabData.DataLoaders.IBSTenkLoader import IBSTenkLoader
 from LabData.DataLoaders.GutMBLoader import GutMBLoader
 from LabData.DataLoaders.ChildrenLoader import ChildrenLoader
 from LabData.DataLoaders.CGMLoader import CGMLoader
+from LabData.DataLoaders.PRSLoader import PRSLoader
 
 ##to remove circular dependencies, these are hardcoded everywhere
 #if you want to change these, you're going to need to change these everywhere in the code that they are used, i.e preprocess_data_loader
@@ -160,6 +162,20 @@ def loader_assoc_plot(stacked_mat):
     plt.xticks(rotation=45, fontsize=6, ha="right")
     plt.title("Significant Associations by Loader, Normalized")
     plt.show()
+
+##Stackmat should have fillNa = False
+def make_clustermaps(stackmat):
+    s_sig = stackmat.loc[(stackmat<0.05).any(1), (stackmat<0.05).any(0)]
+    thedict = PRSLoader().get_data().df_columns_metadata
+    thedict.index = list(map(lambda thestr: "pvalue_" + thestr, thedict.index))
+    thedict = thedict.h2_description.to_dict()
+    s_sig = s_sig.rename(dict(zip(list(s_sig.columns), [thedict.get(col) for col in s_sig.columns])), axis=1)
+    mapper = list(map(lambda potential: type(potential) == str, s_sig.columns))
+    s_sig_only_useful = s_sig.loc[:, mapper]
+    s_sig_only_useful.columns = list(map(lambda thestr: thestr[0:20], s_sig_only_useful.columns))
+    for theval in s_sig_only_useful.index.get_level_values(1).unique():
+        sns.clustermap(np.log10(s_sig_only_useful.loc[s_sig_only_useful.index.get_level_values(1) == theval,:]))
+        plt.savefig("/home/zacharyl/Desktop/scores_figures/" + theval + ".png")
 
 ##print PRSES clusters from all clusters
 def prstoGwas(stackmat, threshold= 0.7, do_corr = False, onlyMultiloaders = False):
