@@ -163,7 +163,7 @@ def fix_norm_dist_capping_type_conversion(notCappedDf, cappedDf):
             cappedDf[cappedDf.columns[i]] = cappedDf[cappedDf.columns[i]].astype(df_col_types_before_norm_dist_capping[i])
     return cappedDf
 
-def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sample_size_frac = 0.95, remove_sigmas = 5, do_log_metab = False): ##Call data for a loader and set the index of the df to be the 10k RegistrationCodes if it isn't already
+def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sample_size_frac = 0.95, remove_sigmas = 5, do_log_log_metab = False): ##Call data for a loader and set the index of the df to be the 10k RegistrationCodes if it isn't already
     ##Because CGMLoader needs these as numbers
     norm_dist_capping = {"sample_size_frac": sample_size_frac, "remove_sigmas": remove_sigmas}
     if loader == SerumMetabolomicsLoader:
@@ -253,13 +253,13 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
     if loader == GutMBLoader: ##log10 correction, detection limit is 10^(-4), so exclude below that
         for col in df.columns:
             df[col] = df[col].apply(lambda val: np.log10(val) if np.log10(val) > -4 else None)
-    if do_log_metab: ##The RT cluster is already logged, don't do it again
+    if do_log_log_metab: ##The RT cluster is already logged, don't do it again
         if loader == SerumMetabolomicsLoader:
             for col in df.columns: ##no cutoff here
                 df[col] = df[col].apply(lambda val: np.log10(val))
                 df.loc[df[col] == -np.inf, col] = None
-        df = df * 1  ##Multiply by one to map booleans to integers as 1:True, 0:False
-        ##better than astype int because we can keep floats
+    df = df * 1  ##Multiply by one to map booleans to integers as 1:True, 0:False
+    ##better than astype int because we can keep floats
     return df
 
 def extract_all_pheno(loader, dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/"):
@@ -288,16 +288,16 @@ def make_plink2_command(pheno_name, use_short_names = False, short_names_table_f
     else:
         bfile_loc = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_extra_qc_extra_before_king"
     if batched and use_pfilter:
-        cmd = plink2_bin +' --bfile ' + bfile_loc  + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin +' --bfile ' + bfile_loc  + ' --king-cutoff 0.22 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     elif batched and not use_pfilter:
-        cmd = plink2_bin +' --bfile '+ bfile_loc + ' --king-cutoff 0.177 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize'
+        cmd = plink2_bin +' --bfile '+ bfile_loc + ' --king-cutoff 0.22 --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/batch' + str(i) + '.txt' + ' --1 --mac 20 --linear no-x-sex hide-covar cols=+ax -allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch' + str(i) + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize'
     elif not use_short_names:
-        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + pheno_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + pheno_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + pheno_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.22  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + pheno_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + pheno_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + pheno_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     else:
         short_names_df = pd.read_csv(short_names_table_fname)
         short_names_df.columns = ["long", "short"]
         short_file_name = short_names_df.loc[short_names_df["long"] == pheno_name, "short"].values[0]  ##the file is named with a short name, which is also the name of the phenotype (column) inside it
-        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.177  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + short_file_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + short_file_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + short_file_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
+        cmd = plink2_bin + ' --bfile ' + bfile_loc + ' --king-cutoff 0.22  --pheno /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/' + short_file_name + '_pheno.txt' + ' --1 --mac 20 --pheno-name ' + short_file_name + ' --linear no-x-sex hide-covar cols=+ax --allow-no-sex --out /net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/' + short_file_name + ' --covar /net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt --covar-col-nums 2-'+ str(howmanyPCs+3) + ' --variance-standardize --pfilter 0.00000005'
     return cmd
 
 def update_covariates(dir="/net/mraid08/export/jasmine/zach/height_gwas/", status_table = None, keep_fid = False):
@@ -636,19 +636,19 @@ if __name__ == "__main__":
     do_batched = True
     min_subject_threshold = 2000
     singleBatch = True ##much faster
-    redo_setup = True
+    redo_setup = False
     ##Can use the close relations pruning list from a previous GWAS run
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
-    remake_batches = True
-    do_GWAS = True
+    remake_batches = False
+    do_GWAS = False
     lenbatches = 1
     do_renaming  = False
     ldmethod = "clump"
-    do_clumping = False
+    do_clumping = True
     redo_genetics_qc = False
     use_pfilter = False
-    pass_cmd = False
+    pass_cmd = True
     howmanyPCs = 10
     redo_get_duplicate_ids = False ##for clumping, right now it's just the ID "."
     if redo_genetics_qc:
