@@ -1,8 +1,8 @@
 import os
 from os.path import isfile, join
 from run_gwas import read_loader_in
-from LabData.DataLoaders.DEXALoader import DEXALoader
 from LabUtils.addloglevels import sethandlers
+import numpy as np
 import pandas as pd
 import subprocess
 from LabData.DataLoaders.PRSLoader import PRSLoader
@@ -38,16 +38,6 @@ def get_tenk_gwas_loc(pheno_name):
 def get_ukbb_gwas_loc(prs_name):
    return "/net/mraid08/export/genie/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/TransformedData/" + prs_name.split("pvalue_")[-1] + ".gwas.imputed_v3.both_sexes.tsv"
 
-def returnSigGwasPairs(stacked, thresh = 5*1e-10):
-    pairs = []
-    for pheno, loader in stacked.index:
-        tenk_gwas_filename = get_tenk_gwas_loc(pheno)
-        entry = stacked.loc[pheno, :].T.dropna() ##since we used fillwithNA = True, in this case all the non significant entries are dropped
-        entry = entry[entry < thresh]
-        for prs in entry.index:
-            pairs.append([tenk_gwas_filename, get_ukbb_gwas_loc(prs)])
-    return pairs
-
 ##From HDL, exported using R
 def read_snp_dictionary():
     return pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/snp_dictionary.csv").drop("Unnamed: 0", axis = 1).set_index("variant").rsid.to_dict()
@@ -75,52 +65,55 @@ def prepare_ukbb_gwas(ukbb_fname, mainpath = "/net/mraid08/export/jasmine/zach/h
     subprocess.call(["~/PycharmProjects/genetics/prepare_ukbb_gwas.sh" + " " + first_arg + " " + second_arg], shell=True)
     return 0
 
-def ldsc_pipeline(tenk_fname, ukbb_fname, already_munged_tenk, already_munged_ukbb):
+def ldsc_pipeline(tenk_fnames, ukbb_fnames):
     broken_tenk_phenos = list(pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").pheno.values)
-    if tenk_fname in broken_tenk_phenos:
-        return
-    ukbb_munge_res = 0 ##default value indicating no errors
-    print("Starting pair: ", tenk_fname, " and ", ukbb_fname)
-    if tenk_fname.split("batch0.")[-1].split(".glm.linear")[0] not in already_munged_tenk:
-        print("Starting munging 10K GWAS: ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0])
-        prepare_tenk_gwas(tenk_fname)
-        print("Done munging 10K GWAS: ", ukbb_fname.split("/")[-1].split(".")[0])
-    if ukbb_fname.split("/")[-1].split(".")[0] not in already_munged_ukbb:
-        print("Starting munging UKBB GWAS: ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0])
-        ukbb_munge_res = prepare_ukbb_gwas(ukbb_fname)
-        print("Done munging 10K GWAS: ", ukbb_fname.split("/")[-1].split(".")[0])
-    if ukbb_munge_res != -1:
-        print("Starting ldsc between the two")
-        ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
-        ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], ukbb_fname.split("/")[-1].split(".")[0])
-        if ldsc_res == -1: ##indicating a broken run
-            with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv", "a+") as f:
-                f.write(tenk_fname)
-                f.write(",")
-                f.write("\n")
-            print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
-        print("Finished ldsc")
+    ##make sure we only count phenotypes with actual summary statistics and not logs with no sumstats
+    already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
+    already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
+    already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
+    already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc]
+    for ukbb_fname in ukbb_fnames:
+        for tenk_fname in tenk_fnames:
+            if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
+                ukbb_munge_res = 0 ##default value indicating no errors
+                print("Starting pair: ", tenk_fname, " and ", ukbb_fname)
+                if tenk_fname.split("batch0.")[-1].split(".glm.linear")[0] not in already_munged_tenk:
+                    print("Starting munging 10K GWAS: ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0])
+                    prepare_tenk_gwas(tenk_fname)
+                    print("Done munging 10K GWAS: ", tenk_fname.split("/")[-1].split(".")[0])
+                if ukbb_fname.split("/")[-1].split(".")[0] not in already_munged_ukbb:
+                    print("Starting munging UKBB GWAS: ", ukbb_fname.split("batch0.")[-1].split(".glm.linear")[0])
+                    ukbb_munge_res = prepare_ukbb_gwas(ukbb_fname)
+                    print("Done munging UKBB GWAS: ", ukbb_fname.split("/")[-1].split(".")[0])
+                if ukbb_munge_res != -1:
+                    print("Starting ldsc between the two")
+                    ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
+                    ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], ukbb_fname.split("/")[-1].split(".")[0])
+                    if ldsc_res == -1: ##indicating a broken run
+                        with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv", "a+") as f:
+                            f.write(tenk_fname)
+                            f.write(",")
+                            f.write("\n")
+                        print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
+                    print("Finished ldsc")
 
-def compute_all_cross_corr(onlySiginAssoc = False):
+def compute_all_cross_corr(batch_width = 100):
     broken_tenk_phenos = list(pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").pheno.values)
     os.chdir(qp_running_dir)
     res = {}
-    with qp(jobname="q") as q:
+    with qp(jobname="ldsc", delay_batch = 30) as q:
         q.startpermanentrun()
-        already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f))]))
-        already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f))]))
-        if onlySiginAssoc:
-            stacked = stack_matrices_and_bonferonni_correct(fillwithNA=True)
-            pairs = returnSigGwasPairs(stacked, onlySiginAssoc) ##pairs of corresponding filenames for the significant entries
-            for tenk_fname, ukbb_fname in pairs:
-                if tenk_fname not in broken_tenk_phenos:
-                    res[(tenk_fname, ukbb_fname)] = q.method(ldsc_pipeline, (tenk_fname, ukbb_fname, already_munged_tenk, already_munged_ukbb))
-        else:
-            stacked = stack_matrices_and_bonferonni_correct(fillwithNA=False)
-            for tenk_pheno in stacked.index.get_level_values(0):
-                if tenk_pheno != "prs" and get_tenk_gwas_loc(tenk_pheno) not in broken_tenk_phenos: ##Ignore this dummy column holding names
-                    for ukbb_pheno in stacked.columns:
-                        res[get_tenk_gwas_loc(tenk_pheno), get_ukbb_gwas_loc(ukbb_pheno)]  = q.method(ldsc_pipeline, (get_tenk_gwas_loc(tenk_pheno), get_ukbb_gwas_loc(ukbb_pheno), get_ukbb_gwas_loc(ukbb_pheno), already_munged_ukbb))
+        stacked = stack_matrices_and_bonferonni_correct(fillwithNA=False)
+        all_tenk_fnames = list(map(get_tenk_gwas_loc, stacked.index.get_level_values(0)))
+        all_tenk_fnames = [x for x in all_tenk_fnames if x not in broken_tenk_phenos and x != "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.prs.glm.linear"]
+        all_ukbb_fnames = list(map(get_ukbb_gwas_loc, stacked.columns))
+        tenk_fnames_batched = np.array_split(all_tenk_fnames, batch_width)
+        ukbb_fnames_batched = np.array_split(all_ukbb_fnames, batch_width)
+        i = 0
+        for tenk_batch in tenk_fnames_batched:
+            for ukbb_batch in ukbb_fnames_batched:
+                res[i]  = q.method(ldsc_pipeline, (tenk_batch, ukbb_batch))
+                i += 1
         res = {k: q.waitforresult(v) for k, v in res.items()}
 
 def find_in_str_list(matchstr, thelist):
@@ -174,6 +167,5 @@ def gen_feature_corr(stackmat, genmat):
 if __name__ == "__main__":
     sethandlers()
     do_all = True
-    onlySiginAssoc = False
     if do_all:
-        compute_all_cross_corr(onlySiginAssoc  = onlySiginAssoc)
+        compute_all_cross_corr()

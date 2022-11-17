@@ -259,7 +259,11 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
                 df[col] = df[col].apply(lambda val: np.log10(val))
                 df.loc[df[col] == -np.inf, col] = None
     df = df * 1  ##Multiply by one to map booleans to integers as 1:True, 0:False
-    ##better than astype int because we can keep floats
+    if loader == UltrasoundLoader:
+        ##All q_box derived measurements start with q_box, if there's a second q_box in the name of the trait don't gwas it
+        ##That would just be the technical input parameter for the q_box itself which we don't care about
+        ##There are only 5 values for this trait anyway
+        df = df.loc[:, [x for x in df.columns if "qbox" not in x]]
     return df
 
 def extract_all_pheno(loader, dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/"):
@@ -645,10 +649,10 @@ if __name__ == "__main__":
     lenbatches = 1
     do_renaming  = False
     ldmethod = "clump"
-    do_clumping = True
+    do_clumping = False
     redo_genetics_qc = False
     use_pfilter = False
-    pass_cmd = True
+    pass_cmd = False
     howmanyPCs = 10
     redo_get_duplicate_ids = False ##for clumping, right now it's just the ID "."
     if redo_genetics_qc:
