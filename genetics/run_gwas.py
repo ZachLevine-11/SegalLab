@@ -338,6 +338,9 @@ def existsAlready(colName, resultDir = "/net/mraid08/export/jasmine/zach/height_
         potential_path = resultDir + short_file_name + "." + short_file_name + ".glm.linear" ##the covariate name is repeated in the output, so do this to properly detect it
     return isfile(potential_path)
 
+def compare_three_sleep_notclumped(basedir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"):
+    thephenos = ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
+
 def all_GWAS(overwrite = True, batched = True, num_batches = 1, use_pfilter = True, ldmethod = "clump", howmanyPCs = 10):
     os.chdir("/net/mraid08/export/mb/logs/")
     if not batched:
@@ -429,6 +432,18 @@ def pre_filter(all_loaders, plink_data, most_frequent_val_max_freq = 0.95, min_s
     print("Dropped " + str(orig_n_cols - len(all_loaders.columns)) + " cols based on too many missing values")
     all_loaders = secondary_filter(all_loaders, plink_data, most_frequent_val_max_freq=most_frequent_val_max_freq, min_subject_threshold = min_subject_threshold)
     return all_loaders
+
+def compare_with_ukbb(ukbb_fname, tenk_fname):
+    ukbb_gwas, tenk_gwas = pd.read_csv(ukbb_fname, sep = "\t"), pd.read_csv(tenk_fname, sep = "\t")
+    ukbb_gwas_sig, tenk_gwas_sig = ukbb_gwas.loc[ukbb_gwas.pval < 5*10**-8], tenk_gwas.loc[tenk_gwas.P < 5*10**-8]
+    neale_newindex = list(map(lambda index: index.split("[")[0], ukbb_gwas_sig["variant"]))
+    ukbb_gwas_sig["ID"] = neale_newindex
+    ukbb_gwas_sig ["ID"] = ukbb_gwas_sig["ID"].str.replace(":", "") + ukbb_gwas_sig[""]
+    ukbb_gwas_sig["ID"] = ukbb_gwas_sig["ID"] + ukbb_gwas_sig["ref_allele"] + ukbb_gwas_sig["alt_allele"]
+    tenk_gwas_sig["newid"] = list(map(lambda theint: str(theint), tenk_gwas_sig["POS"])) + tenk_gwas_sig["AX"] + tenk_gwas_sig["A1"]
+    tenk_gwas_sig["newid"] = list(map(lambda theint: str(theint), tenk_gwas_sig["#CHROM"])) + tenk_gwas_sig["newid"]
+    res = pd.merge(ukbb_gwas_sig, tenk_gwas_sig, left_on="ID", right_on="newid", how="inner")
+    return res
 
 def write_all_batches(singleBatch = True, keep_fid = False, single_pheno_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/", batched_pheno_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/", min_subject_threshold = 2000, most_frequent_val_max_freq = 0.95, plink_data = None, exclusion_filter_fname = None):
     if not singleBatch:

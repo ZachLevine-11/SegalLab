@@ -25,6 +25,7 @@ def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/expor
     else:
         return 0
 
+
 ##not using clumped files for now
 def get_tenk_gwas_loc(pheno_name):
     basedir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/"
