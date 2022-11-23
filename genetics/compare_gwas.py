@@ -125,14 +125,15 @@ def find_in_str_list(matchstr, thelist):
         i += 1
 
 def parse_single_ldsc_file(file, dir = ""):
-    p, corr = "nan", "nan"
+    p, corr, her = "nan", "nan", "nan"
     with open(dir + file, "r") as f:
         contents = f.readlines()
         p_index = find_in_str_list("P: ", contents)
         if p_index is not None:  ##Indicating ldsc failed
             p = contents[p_index].split("P: ")[1].split("\n")[0]
             corr = contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[0]
-    return p, corr
+            her = contents[find_in_str_list("Heritability of phenotype 2/2", contents)+2].split("Total Observed scale h2: ")[1].split(" (")[0]
+    return p, corr, her
 
 def is_ldsc_broken(p, corr):
     if p != "nan" and corr != "nan" and p != 'nan (nan) (h2  out of bounds)' and corr != 'nan (nan) (h2  out of bounds)':
@@ -145,9 +146,9 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
     all_files = [f for f in os.listdir(dir) if isfile(join(dir, f))]
     res = {}
     for file in all_files:
-            p, corr = parse_single_ldsc_file(file, dir = dir)
+            p, corr, her = parse_single_ldsc_file(file, dir = dir)
             if not is_ldsc_broken(p, corr):
-                res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr)}
+                res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr), "10K Trait Heritability": float(her)}
     res = pd.DataFrame(res).T
     res["P"] = multipletests(pvals = res["P"], method = "bonferroni")[1]
     return res
@@ -167,6 +168,6 @@ def gen_feature_corr(stackmat, genmat):
 
 if __name__ == "__main__":
     sethandlers()
-    do_all = True
+    do_all = False
     if do_all:
         compute_all_cross_corr()
