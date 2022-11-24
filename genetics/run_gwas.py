@@ -40,7 +40,10 @@ import sys
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
 #loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
-loaders_list = [SerumMetabolomicsLoader]
+loaders_list = [CGMLoader]
+
+sleepPhenos =  ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
+liverPhenos = ["batch0.q_box_mean_kpa_mean_elasticity.glm.linear"]
 
 def run_plink1(plink_cmd, jobname, mem_required_gb, threads=32, queue=qp):
     os.chdir(qp_running_dir)
@@ -338,9 +341,6 @@ def existsAlready(colName, resultDir = "/net/mraid08/export/jasmine/zach/height_
         potential_path = resultDir + short_file_name + "." + short_file_name + ".glm.linear" ##the covariate name is repeated in the output, so do this to properly detect it
     return isfile(potential_path)
 
-def compare_three_sleep_notclumped(basedir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"):
-    thephenos = ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
-
 def all_GWAS(overwrite = True, batched = True, num_batches = 1, use_pfilter = True, ldmethod = "clump", howmanyPCs = 10):
     os.chdir("/net/mraid08/export/mb/logs/")
     if not batched:
@@ -445,6 +445,27 @@ def compare_with_ukbb(ukbb_fname, tenk_fname):
     res = pd.merge(ukbb_gwas_sig, tenk_gwas_sig, left_on="ID", right_on="newid", how="inner")
     return res
 
+##Use gencove indices as the index
+def make_extra_sleep_cols():
+    s = read_loader_in(ItamarSleepLoader)
+    s["Average_Apnea_Length"] = [s.loc[tenK_index, "TotalApneaSleepTime"]/s.loc[tenK_index, "TotalNumberOfApneas"] if s.loc[tenK_index, "TotalNumberOfApneas"] != 0 else 0 for tenK_index in s.index]
+    return s["Average_Apnea_Length"]
+
+def make_extra_liver_cols():
+    att_plus_phenos = ["att_plus_ssp_plus_db_cm_mhz_1_att_plus", "att_plus_ssp_plus_db_cm_mhz_2_att_plus", "att_plus_ssp_plus_db_cm_mhz_3_att_plus"]
+    ssp_plus_phenos = ["att_plus_ssp_plus_m_s_3_ssp_plus", "att_plus_ssp_plus_m_s_2_ssp_plus", "att_plus_ssp_plus_m_s_3_ssp_plus"]
+    us = read_loader_in(UltrasoundLoader)
+    us["Average_SSP_Plus"] = us[ssp_plus_phenos].mean(1)
+    us["Average_ATT_Plus"] = us[att_plus_phenos].mean(1)
+    return us[["Average_SSP_Plus", "Average_ATT_Plus"]]
+
+def make_extra_cols_gwas():
+    df_10K = pd.merge(make_extra_liver_cols(), make_extra_sleep_cols(), left_on = "RegistrationCode", right_on = "RegistrationCode", how = "outer")
+    temp_index = df_10K.reset_index().RegistrationCode.apply(status_table.set_index('RegistrationCode').gencove_id.to_dict().get)
+    temp_index.name = "IID"
+    df_10K = df_10K.set_index(temp_index)
+    return df_10K
+
 def write_all_batches(singleBatch = True, keep_fid = False, single_pheno_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos/", batched_pheno_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/phenos_batched/", min_subject_threshold = 2000, most_frequent_val_max_freq = 0.95, plink_data = None, exclusion_filter_fname = None):
     if not singleBatch:
         cols_batches = make_batches(single_pheno_dir = single_pheno_dir)
@@ -473,11 +494,14 @@ def write_all_batches(singleBatch = True, keep_fid = False, single_pheno_dir = "
         temp_index.name = "IID"
         all_loaders = all_loaders.set_index(temp_index)
         all_loaders = pre_filter(all_loaders, plink_data, most_frequent_val_max_freq, min_subject_threshold, exclusion_filter_fname = exclusion_filter_fname)
+        print("Manually adding artificial columns now")
+        ##Both indices are called IID so this should work
+        all_loaders = all_loaders.merge(make_extra_cols_gwas(), left_index = True, right_index = True, how = "outer")
         all_loaders = order_cols(all_loaders, keep_fid)
         print("Writing all loaders to batch now")
         ##using fillNA is much slower than using na_rep at the time we write the batch csv file
         all_loaders.to_csv(batched_pheno_dir + "batch" + str(0) + ".txt", sep="\t", index=False, header=True, na_rep = "NA")
-        print("Wrote batch to csv")
+        print("Wrote batch to csv, N = " , str(len(all_loaders)))
         return 1
 
 def rename_results(gwas_output_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", gwas_output_renamed_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_renamed/"):
@@ -491,7 +515,7 @@ def rename_results(gwas_output_dir = "/net/mraid08/export/jasmine/zach/height_gw
         if "log" not in long_filename:
             gwas = pd.read_csv(gwas_output_dir+long_filename, sep = "\t")
             try:
-                true_name = short_name_table_inverse[already_done_short[i]].replace("/", "") ##just remove the backslackes from the true names
+                true_name = short_name_table_inverse[already_done_short[i]].replace("/", "") ##just remove the backslashes from the true names
             except KeyError:
                 true_name = long_filename
             gwas.to_csv(gwas_output_renamed_dir + true_name + ".glm.linear", sep = "\t", index = False, header = True)
@@ -655,12 +679,12 @@ if __name__ == "__main__":
     do_batched = True
     min_subject_threshold = 2000
     singleBatch = True ##much faster
-    redo_setup = False
+    redo_setup = True
     ##Can use the close relations pruning list from a previous GWAS run
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
-    remake_batches = False
-    do_GWAS = False
+    remake_batches = True
+    do_GWAS = True
     lenbatches = 1
     do_renaming  = False
     ldmethod = "clump"

@@ -132,6 +132,7 @@ def parse_single_ldsc_file(file, dir = ""):
         if p_index is not None:  ##Indicating ldsc failed
             p = contents[p_index].split("P: ")[1].split("\n")[0]
             corr = contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[0]
+            ##The 10K trait is always phenotype 2/2 in the ldsc report
             her = contents[find_in_str_list("Heritability of phenotype 2/2", contents)+2].split("Total Observed scale h2: ")[1].split(" (")[0]
     return p, corr, her
 
