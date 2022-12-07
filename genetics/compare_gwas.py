@@ -12,6 +12,8 @@ from scipy.stats.stats import pearsonr
 from statsmodels.stats.multitest import multipletests
 from LabQueue.qp import qp
 from GeneticsPipeline.config import qp_running_dir
+from LabData.DataLoaders.DEXALoader import DEXALoader
+from LabData.DataLoaders.CGMLoader import CGMLoader
 
 ##We need a specific conda installation for this so it can't run on the queue or with shellcommandexecute
 def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
@@ -24,7 +26,6 @@ def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/expor
         return -1
     else:
         return 0
-
 
 ##not using clumped files for now
 def get_tenk_gwas_loc(pheno_name):
@@ -67,7 +68,7 @@ def prepare_ukbb_gwas(ukbb_fname, mainpath = "/net/mraid08/export/jasmine/zach/h
     return 0
 
 def ldsc_pipeline(tenk_fnames, ukbb_fnames):
-    broken_tenk_phenos = list(pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").pheno.values)
+    broken_tenk_phenos = list(set(list(pd.read_table("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").iloc[:,0].values)))
     ##make sure we only count phenotypes with actual summary statistics and not logs with no sumstats
     already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
     already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
@@ -98,8 +99,13 @@ def ldsc_pipeline(tenk_fnames, ukbb_fnames):
                         print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
                     print("Finished ldsc")
 
+def unstack_matrix(ldsc_mat):
+    resg = ldsc_mat["Genetic Correlation"]
+    resg_2d = resg.loc[~resg.index.duplicated(), :].unstack(level=1)
+    return resg_2d
+
 def compute_all_cross_corr(batch_width = 100):
-    broken_tenk_phenos = list(pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").pheno.values)
+    broken_tenk_phenos = list(set(list(pd.read_table("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").iloc[:,0].values)))
     os.chdir(qp_running_dir)
     res = {}
     with qp(jobname="ldsc", delay_batch = 30) as q:
@@ -136,11 +142,19 @@ def parse_single_ldsc_file(file, dir = ""):
             her = contents[find_in_str_list("Heritability of phenotype 2/2", contents)+2].split("Total Observed scale h2: ")[1].split(" (")[0]
     return p, corr, her
 
-def is_ldsc_broken(p, corr):
+def is_ldsc_broken(p, corr, herr):
     if p != "nan" and corr != "nan" and p != 'nan (nan) (h2  out of bounds)' and corr != 'nan (nan) (h2  out of bounds)':
         return False
     else:
         return True
+
+def whichLoader(phenoName, dexacols, cgmcols):
+    if phenoName in cgmcols:
+        return "Insulin"
+    elif phenoName in dexacols:
+        return "DEXA"
+    else:
+        return phenoName
 
 def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/all/"):
     ukbb_meaning_dict = PRSLoader().get_data().df_columns_metadata.h2_description.to_dict()
@@ -169,6 +183,6 @@ def gen_feature_corr(stackmat, genmat):
 
 if __name__ == "__main__":
     sethandlers()
-    do_all = False
+    do_all = True
     if do_all:
         compute_all_cross_corr()
