@@ -27,18 +27,9 @@ def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/expor
     else:
         return 0
 
-##not using clumped files for now
-def get_tenk_gwas_loc(pheno_name):
-    basedir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/"
-    if "Lipids" not in pheno_name and "fBin_" not in pheno_name:
-        return basedir + "gwas_results/batch0." + pheno_name +".glm.linear"
-    elif "Lipids" in pheno_name:
-        return basedir + "metab/gwas_results_metab/batch0." + pheno_name +".glm.linear"
-    elif "fBin_" in pheno_name:
-        return basedir + "microbiome/gwas_results_mb/batch0." + pheno_name +".glm.linear"
-
 def get_ukbb_gwas_loc(prs_name):
-   return "/net/mraid08/export/genie/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/TransformedData/" + prs_name.split("pvalue_")[-1] + ".gwas.imputed_v3.both_sexes.tsv"
+    prs_name = str(prs_name)
+    return "/net/mraid08/export/genie/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/TransformedData/" + prs_name.split("pvalue_")[-1] + ".gwas.imputed_v3.both_sexes.tsv"
 
 ##From HDL, exported using R
 def read_snp_dictionary():
@@ -104,16 +95,17 @@ def unstack_matrix(ldsc_mat):
     resg_2d = resg.loc[~resg.index.duplicated(), :].unstack(level=1)
     return resg_2d
 
-def compute_all_cross_corr(batch_width = 100):
+def compute_all_cross_corr(batch_width = 100, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
     broken_tenk_phenos = list(set(list(pd.read_table("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").iloc[:,0].values)))
-    os.chdir(qp_running_dir)
     res = {}
     with qp(jobname="ldsc", delay_batch = 30) as q:
         q.startpermanentrun()
-        stacked = stack_matrices_and_bonferonni_correct(fillwithNA=False)
-        all_tenk_fnames = list(map(get_tenk_gwas_loc, stacked.index.get_level_values(0)))
+        all_tenk_fnames = []
+        for containing_dir in containing_dirs:
+            all_tenk_fnames += [containing_dir + f for f in os.listdir(containing_dir) if isfile(join(containing_dir, f))]
         all_tenk_fnames = [x for x in all_tenk_fnames if x not in broken_tenk_phenos and x != "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.prs.glm.linear"]
-        all_ukbb_fnames = list(map(get_ukbb_gwas_loc, stacked.columns))
+        all_tenk_fnames = all_tenk_fnames[::-1]##just an ordering thing, so we don't just do DEXA
+        all_ukbb_fnames = list(map(get_ukbb_gwas_loc, PRSLoader().get_data().df.columns))
         tenk_fnames_batched = np.array_split(all_tenk_fnames, batch_width)
         ukbb_fnames_batched = np.array_split(all_ukbb_fnames, batch_width)
         i = 0
@@ -183,6 +175,7 @@ def gen_feature_corr(stackmat, genmat):
 
 if __name__ == "__main__":
     sethandlers()
+    os.chdir(qp_running_dir)
     do_all = True
     if do_all:
         compute_all_cross_corr()
