@@ -41,8 +41,9 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-#loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader]
-loaders_list = [RetinaScanLoader]
+loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader]
+
+#loaders_list = [SerumMetabolomicsLoader]
 
 sleepPhenos =  ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
 liverPhenos = ["batch0.Average_SSP_Plus.glm.linear", "batch0.Average_ATT_Plus.glm.linear"]
@@ -555,7 +556,7 @@ def generate_hybrid_index(hits_df, cols = ["CHROM", "POS", "REF", "ALT"]):
     ##convert each column to a string and then concatenate them
     return set(hits_df[cols].apply(lambda col: col.astype(str)).apply(":".join, axis = 1))
 
-def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", clump_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_clumped/", singleBatch = True):
+def summarize_gwas(onlythesecols = None, forHist = False, threshold = False, use_clumped = True, containing_dir =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", clump_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_clumped/", singleBatch = True):
     if use_clumped:
         containing_dir = clump_dir
         sep = "\s+|\t+|\s+\t+|\t+\s+"
@@ -566,6 +567,9 @@ def summarize_gwas(onlythesecols = None, threshold = False, use_clumped = True, 
     else:
         all_gwases = [f for f in os.listdir(containing_dir) if isfile(join(containing_dir, f))]
     numGwases = len(all_gwases) ##correct for all the GWASES that we did, not just the ones from each loader.
+    if forHist:
+        numGwases = 1
+        threshold = True
     if onlythesecols is not None:
         ##intersect the columns from the loader with the gwases we actually have
         if singleBatch and not use_clumped:
@@ -720,10 +724,10 @@ if __name__ == "__main__":
     do_GWAS = False
     do_noam = False
     lenbatches = 1
-    do_renaming  = False
-    ldmethod = "clump"
-    do_clumping = False
+    do_renaming = False
     redo_genetics_qc = False
+    ldmethod = "clump"
+    do_clumping = True
     use_pfilter = False
     pass_cmd = False
     howmanyPCs = 10
