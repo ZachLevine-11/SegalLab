@@ -59,12 +59,12 @@ def prepare_ukbb_gwas(ukbb_fname, mainpath = "/net/mraid08/export/jasmine/zach/h
     return 0
 
 def ldsc_pipeline(tenk_fnames, ukbb_fnames):
-    broken_tenk_phenos = list(set(list(pd.read_table("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").iloc[:,0].values)))
+    broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     ##make sure we only count phenotypes with actual summary statistics and not logs with no sumstats
     already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
     already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
     already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
-    already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc]
+    already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc if "_tenK_" in x and "_UKBB_" in x]
     for ukbb_fname in ukbb_fnames:
         for tenk_fname in tenk_fnames:
             if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
@@ -83,10 +83,8 @@ def ldsc_pipeline(tenk_fnames, ukbb_fnames):
                     ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
                     ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], ukbb_fname.split("/")[-1].split(".")[0])
                     if ldsc_res == -1: ##indicating a broken run
-                        with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv", "a+") as f:
-                            f.write(tenk_fname)
-                            f.write(",")
-                            f.write("\n")
+                        with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/" + tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], "w") as f:
+                            f.write("")
                         print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
                     print("Finished ldsc")
 
@@ -96,7 +94,7 @@ def unstack_matrix(ldsc_mat):
     return resg_2d
 
 def compute_all_cross_corr(batch_width = 100, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
-    broken_tenk_phenos = list(set(list(pd.read_table("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos.csv").iloc[:,0].values)))
+    broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     res = {}
     with qp(jobname="ldsc", delay_batch = 30) as q:
         q.startpermanentrun()
@@ -156,6 +154,8 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
             p, corr, her = parse_single_ldsc_file(file, dir = dir)
             if not is_ldsc_broken(p, corr):
                 res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr), "10K Trait Heritability": float(her)}
+            else:
+                res = [(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": None, "Genetic Correlation": None, "10K Trait Heritability": None}
     res = pd.DataFrame(res).T
     res["P"] = multipletests(pvals = res["P"], method = "bonferroni")[1]
     return res
@@ -178,4 +178,4 @@ if __name__ == "__main__":
     os.chdir(qp_running_dir)
     do_all = True
     if do_all:
-        compute_all_cross_corr()
+        compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])

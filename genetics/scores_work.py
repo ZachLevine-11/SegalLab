@@ -224,7 +224,7 @@ if __name__ == "__main__":
     min_subject_threshold = 2000
     most_frequent_val_max_freq = 0.95
     redo_collect_correct_pqtls = False
-    redo_association_tests_prs = False
+    redo_association_tests_prs = True
     redo_association_tests_pqtl = False
     redo_prs_pqtl_associations = False
     correct_beforehand = False ##keep off to use the model with built in correction for age, gender, and PCS
@@ -235,7 +235,7 @@ if __name__ == "__main__":
             scores = correct_all_covariates("", use_precomputed_loader=True, precomputed_loader=scores)
         scores.to_csv(corrected_qtl_fname)
     if redo_loader_saving:
-        plink_data_loaded = read_plink_bins_10K_index(unique = False)
+        plink_data_loaded = read_plink_bins_10K_index()
         correct_all_loaders(loaders = loaders_list, correct_beforehand = correct_beforehand, plink_data = plink_data_loaded, min_subject_threshold = min_subject_threshold, most_frequent_val_max_freq = most_frequent_val_max_freq)
     ##then, treat the PQTLS as the PRSES and test with all the dataloaders
     if redo_association_tests_prs:
