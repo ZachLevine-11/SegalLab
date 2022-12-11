@@ -688,22 +688,27 @@ def clump(qc_dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_e
     alreadyclumped = list(map(lambda fname: fname.split(".")[1], [f for f in os.listdir(clump_dir) if isfile(join(clump_dir, f))]))
     gwases_from_today = [x for x in all_gwases if wasGwasedToday(gwas_results_dir + x)]
     numGwases = len(all_gwases) ##correct for all the GWASES that we did, not just the ones from each loader.
-    ##Penalize based on all gwases, but only clump gwases done today
-    for long_filename in gwases_from_today:
-        if long_filename.split(".")[1] not in alreadyclumped and "clumpheader" not in long_filename: ##Don't treat clumpheader files as new traits, we only need them for plink
-            gwas = pd.read_csv(gwas_results_dir + long_filename, sep="\t")
-            if "P" in gwas.columns:
-                if len(gwas.P) != 0:  # ignore gwases with no significant associations
-                    gwas.columns = ["CHROM", *gwas.columns[range(1, len(gwas.columns))]]  ##fix the hashtag in the name of the chromosome column
-                    if len(gwas.loc[gwas.P < (5 * 10 ** (-8)) / numGwases, :]) >= 1:
-                        print("At least one significant hit found for " + long_filename.split(".glm.linear")[0] + " clumping now.")
-                        ##the clump CMD needs the snp id column to be named 'SNP', not 'ID' it is supposed to be by plink.
-                        ##To fix this, change the header name manually of files we're clumping
-                        ###Don't overwrite the original, save this one with a special prefix
-                        gwas.columns = ["CHROM", "POS", "SNP", *gwas.columns[range(3, len(gwas.columns))]]
-                        gwas.to_csv(gwas_results_dir + "clumpheader" + long_filename,  index = False, header = True, sep = "\t")
-                        clump_cmd = plink19_bin + ' --bfile ' + qc_dir + 'allsamples_qc_custom --clump ' + gwas_results_dir + "clumpheader" + long_filename + ' --exclude ' + qc_dir + duplicate_id_snps_fname + ' --out ' + clump_dir + long_filename.split(".glm.linear")[0]
-                        run_plink1(clump_cmd, "clump", required_memory_gb("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_qc_custom.bed"))
+    res = {}
+    os.chdir(qp_running_dir)
+    with qp(jobname= "clump", _mem_def=f'{required_memory_gb("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/allsamples_qc_custom.bed")}G',_trds_def=32, delay_batch = 30, _tryrerun=True) as q:
+        q.startpermanentrun()
+        ##Penalize based on all gwases, but only clump gwases done today
+        for long_filename in gwases_from_today:
+            if long_filename.split(".")[1] not in alreadyclumped and "clumpheader" not in long_filename: ##Don't treat clumpheader files as new traits, we only need them for plink
+                gwas = pd.read_csv(gwas_results_dir + long_filename, sep="\t")
+                if "P" in gwas.columns:
+                    if len(gwas.P) != 0:  # ignore gwases with no significant associations
+                        gwas.columns = ["CHROM", *gwas.columns[range(1, len(gwas.columns))]]  ##fix the hashtag in the name of the chromosome column
+                        if len(gwas.loc[gwas.P < (5 * 10 ** (-8)) / numGwases, :]) >= 1:
+                            print("At least one significant hit found for " + long_filename.split(".glm.linear")[0] + " clumping now.")
+                            ##the clump CMD needs the snp id column to be named 'SNP', not 'ID' it is supposed to be by plink.
+                            ##To fix this, change the header name manually of files we're clumping
+                            ###Don't overwrite the original, save this one with a special prefix
+                            gwas.columns = ["CHROM", "POS", "SNP", *gwas.columns[range(3, len(gwas.columns))]]
+                            gwas.to_csv(gwas_results_dir + "clumpheader" + long_filename,  index = False, header = True, sep = "\t")
+                            clump_cmd = plink19_bin + ' --bfile ' + qc_dir + 'allsamples_qc_custom --clump ' + gwas_results_dir + "clumpheader" + long_filename + ' --exclude ' + qc_dir + duplicate_id_snps_fname + ' --out ' + clump_dir + long_filename.split(".glm.linear")[0]
+                            res[long_filename] = q.method(lambda: ShellCommandsExecute().run(cmd=clump_cmd, cmd_name=long_filename.split(".")[1]))
+        res = {k:q.waitforresult(v) for k, v in res.items()}
 
 if __name__ == "__main__":
     ##avoid breaking scores_work and other modules that use the queue and import this file
