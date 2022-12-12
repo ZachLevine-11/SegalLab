@@ -166,7 +166,7 @@ def loader_assoc_plot(stacked_mat):
 
 ##Stackmat should have fillNa = False
 def make_clustermaps(stackmat):
-    s_sig = stackmat.loc[(stackmat<0.05).any(1), (stackmat<0.05).any(0)]
+    s_sig = stackmat.loc[(stackmat<0.01).any(1), (stackmat<0.01).any(0)]
     thedict = PRSLoader().get_data().df_columns_metadata
     thedict.index = list(map(lambda thestr: "pvalue_" + thestr, thedict.index))
     thedict = thedict.h2_description.to_dict()

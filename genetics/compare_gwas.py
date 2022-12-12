@@ -126,7 +126,7 @@ def compute_all_cross_corr(batch_width = 10, containing_dirs = ["/net/mraid08/ex
         all_tenk_fnames = []
         for containing_dir in containing_dirs:
             all_tenk_fnames += [containing_dir + f for f in os.listdir(containing_dir) if isfile(join(containing_dir, f))]
-        all_tenk_fnames = [x for x in all_tenk_fnames if x not in broken_tenk_phenos and x != "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.prs.glm.linear"]
+        all_tenk_fnames = [x for x in all_tenk_fnames if x not in broken_tenk_phenos and x != "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.prs.glm.linear" and "clumpheader" not in x]
         all_ukbb_fnames = list(map(get_ukbb_gwas_loc, PRSLoader().get_data().df.columns))
         already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir(
             "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(
@@ -171,7 +171,6 @@ def compute_all_cross_corr(batch_width = 10, containing_dirs = ["/net/mraid08/ex
             for ukbb_batch in sumstats_exists_tenk_batched:
                 res_ldsc[(tenk_batch, ukbb_batch)] = q.method(compare_gwases_batched, (tenk_batch, ukbb_batch))
         res_ldsc = {k: q.waitforresult(v) for k, v in res_ldsc.items()}
-
 
 def find_in_str_list(matchstr, thelist):
     i = 0
