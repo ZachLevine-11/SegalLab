@@ -23,7 +23,7 @@ def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/expor
     fourth_arg = mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1]
     try:
         subprocess.call(["~/PycharmProjects/genetics/do_ldsc_cmd.sh" + " " + rg_arg + " " + second_arg + " " + third_arg + " " + fourth_arg], shell=True)
-    except (ValueError, RuntimeError, TypeError, NameError) as e:
+    except Exception:
         return -1
     if is_ldsc_broken(*parse_single_ldsc_file(fourth_arg + ".log")):
         return -1
@@ -45,7 +45,7 @@ def prepare_tenk_gwas(tenk_fname, mainpath = "/net/mraid08/export/jasmine/zach/h
     third_arg = str(N)
     try:
         subprocess.call(["~/PycharmProjects/genetics/prepare_tenk_gwas.sh" + " " + first_arg + " " + second_arg + " " + third_arg], shell=True)
-    except (ValueError, RuntimeError, TypeError, NameError) as e:
+    except Exception:
         return -1
     return 0
 
@@ -63,7 +63,7 @@ def prepare_ukbb_gwas(ukbb_fname, mainpath = "/net/mraid08/export/jasmine/zach/h
     second_arg = mainpath + 'ukbb_gwases_munged/' + ukbb_fname.split("/")[-1].split(".")[0]
     try:
         subprocess.call(["~/PycharmProjects/genetics/prepare_ukbb_gwas.sh" + " " + first_arg + " " + second_arg], shell=True)
-    except (ValueError, RuntimeError, TypeError, NameError) as e:
+    except Exception:
         return -1
     return 0
 
@@ -72,7 +72,7 @@ def munge_tenk_batched(tenk_batch):
     broken_tenk_phenos = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/")if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f))]))
     for tenk_fname in tenk_batch:
-        tenk_munge_res = -1
+        tenk_munge_res = 0 ##So that if the file already was munged and we don't munge it again, it indicates success
         if tenk_fname not in broken_tenk_phenos and ".glm.linear" in tenk_fname: ##Catch plink log files
             if tenk_fname.split("batch0.")[-1].split(".glm.linear")[0] not in already_munged_tenk:
                 print("Starting munging 10K GWAS: ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0])
@@ -86,7 +86,7 @@ def munge_ukbb_batched(ukbb_batch):
     ##Count log files too because sometimes we only have log files (i.e if a run failed)
     already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f))]))
     for ukbb_fname in ukbb_batch:
-        ukbb_munge_res = -1
+        ukbb_munge_res = 0 ##So that if the file already was munged and we don't munge it again, it indicates success
         if ukbb_fname.split("/")[-1].split(".")[0] not in already_munged_ukbb:
             print("Starting munging UKBB GWAS: ", ukbb_fname.split("batch0.")[-1].split(".glm.linear")[0])
             ukbb_munge_res = prepare_ukbb_gwas(ukbb_fname)
@@ -94,35 +94,30 @@ def munge_ukbb_batched(ukbb_batch):
         ukbb_munge_results[ukbb_fname] = ukbb_munge_res
     return ukbb_munge_results
 
-def compare_gwases_batched(ukbb_munge_res_dict, tenk_fnames, ukbb_fnames):
+def compare_gwases_batched(tenk_fnames, ukbb_fnames):
     broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
     already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc if "_tenK_" in x and "_UKBB_" in x]
     for ukbb_fname in ukbb_fnames:
         ##Maps fname:munge res for this batch
-        ukbb_munge_res = ukbb_munge_res_dict[ukbb_fname]
         for tenk_fname in tenk_fnames:
             if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
-                if ukbb_munge_res != -1:
-                    print("Starting ldsc between the two")
-                    ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
-                    ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],
-                                             ukbb_fname.split("/")[-1].split(".")[0])
-                    if ldsc_res == -1:  ##indicating a broken run
-                        with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/" +
-                                  tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], "w") as f:
-                            f.write("")
-                        print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],
-                              " added to exclusion list")
+                print("Starting ldsc between the two")
+                ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
+                ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],ukbb_fname.split("/")[-1].split(".")[0])
+                if ldsc_res == -1:  ##indicating a broken run
+                    with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/" +
+                                tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], "w") as f:
+                        f.write("")
+                    print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
                     print("Finished ldsc")
-
 
 def unstack_matrix(ldsc_mat):
     resg = ldsc_mat["Genetic Correlation"]
     resg_2d = resg.loc[~resg.index.duplicated(), :].unstack(level=1)
     return resg_2d
 
-def compute_all_cross_corr(batch_width = 100, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
+def compute_all_cross_corr(batch_width = 10, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
     broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     res_munging = {}
     res_ldsc = {}
@@ -132,38 +127,49 @@ def compute_all_cross_corr(batch_width = 100, containing_dirs = ["/net/mraid08/e
         for containing_dir in containing_dirs:
             all_tenk_fnames += [containing_dir + f for f in os.listdir(containing_dir) if isfile(join(containing_dir, f))]
         all_tenk_fnames = [x for x in all_tenk_fnames if x not in broken_tenk_phenos and x != "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.prs.glm.linear"]
-        all_tenk_fnames = all_tenk_fnames[::-1]##just an ordering thing, so we don't just do DEXA
         all_ukbb_fnames = list(map(get_ukbb_gwas_loc, PRSLoader().get_data().df.columns))
-        tenk_fnames_batched = np.array_split(all_tenk_fnames, len(all_tenk_fnames)//batch_width)
-        ukbb_fnames_batched = np.array_split(all_ukbb_fnames, len(all_ukbb_fnames)//batch_width)
-        print("Dispatching TenK munging jobs")
-        for tenk_batch in tenk_fnames_batched:
-            ##Keep the arguments as tuples so that the qp internal check (is empty) works, instead of doing the array comparison and it not working
-            res_munging[tuple(tenk_batch)]  = q.method(munge_tenk_batched, (tenk_batch,))
-        print("Dispatching UKBB munging jobs")
-        for ukbb_batch in ukbb_fnames_batched:
-            res_munging[tuple(ukbb_batch)]  = q.method(munge_ukbb_batched, (ukbb_batch,))
+        already_munged_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir(
+            "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(
+            join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f))]))
+        already_munged_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir(
+            "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(
+            join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f))]))
+        all_tenk_fnames_not_munged = [x for x in all_tenk_fnames if x.split("batch0.")[-1].split(".glm.linear")[0] not in already_munged_tenk]
+        if len(all_tenk_fnames_not_munged) == 0:
+            print("All TenK Gwases have been munged already")
+        else:
+            all_tenk_fnames_not_munged_batched = np.array_split(all_tenk_fnames_not_munged, max(len(all_tenk_fnames_not_munged)//batch_width, 1))
+            print("Dispatching remaining " , len(all_tenk_fnames_not_munged), " TenK munging files")
+            for tenk_batch in all_tenk_fnames_not_munged_batched:
+                ##Keep the arguments as tuples so that the qp internal check (is empty) works, instead of doing the array comparison and it not working
+                res_munging[tuple(tenk_batch)]  = q.method(munge_tenk_batched, (tenk_batch,))
+        all_ukbb_fnames_not_munged = [x for x in all_ukbb_fnames if x.split("/")[-1].split(".")[0] not in already_munged_ukbb]
+        if len(all_ukbb_fnames_not_munged) == 0:
+            print("All UKBB Gwases have been munged already")
+        else:
+            all_ukbb_fnames_not_munged_batched = np.array_split(all_ukbb_fnames_not_munged, max(len(all_ukbb_fnames_not_munged) // batch_width, 1))
+            print("Dispatching remaining " , len(all_ukbb_fnames_not_munged), " UKBB munging files")
+            for ukbb_batch in all_ukbb_fnames_not_munged_batched:
+                res_munging[tuple(ukbb_batch)]  = q.method(munge_ukbb_batched, (ukbb_batch,))
         res_munging = {k: q.waitforresult(v) for k, v in res_munging.items()}
         status_table = pd.Series(res_munging)
         status_table.to_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/munging_status_table.csv")
         ##Now each batch of tenk_phenos and ukbb_phenos lives in res_munging, which we do in the same dict to wait for both at the same time
         ##To grab the result of a single UKBB munge, grab the results corresponding to the batch and then the results corresponding to the filename
-        ##these should be the same as above, but for safety's sake only treat GWASes that have been munged with actual corresponding .sumstats.gz files where we want them
+        ##While they were technically munged and we don't want to redo them, so we count them above, now ignore gwases that don't
+        ##Only give ldscore GWASes that have been munged with actual corresponding .sumstats.gz files where we want them
         sumstats_exists_ukbb = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir(
             "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/") if isfile(
             join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "ukbb_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
         sumstats_exists_tenk = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir(
             "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/") if isfile(
             join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/", f)) and f.endswith(".sumstats.gz")]))
+        sumstats_exists_ukbb_batched = np.array_split(sumstats_exists_ukbb, len(sumstats_exists_ukbb)//batch_width)
+        sumstats_exists_tenk_batched = np.array_split(sumstats_exists_tenk, len(sumstats_exists_ukbb)//batch_width)
         ##Only operate on GWASES with actual sumstats.gz files at this point, when we've considered all traits
-        tenk_fnames_munged_succesfully_batched = list(
-            map(lambda batch: [x for x in batch if res_munging[tuple(batch)][x] == 0 and x in sumstats_exists_tenk], tenk_fnames_batched))
-        ukbb_fnames_munged_succesfully_batched = list(
-            map(lambda batch: [x for x in batch if res_munging[tuple(batch)][x] == 0 and x in sumstats_exists_ukbb], ukbb_fnames_batched))
-        for tenk_batch in tenk_fnames_munged_succesfully_batched:
-            for ukbb_batch in ukbb_fnames_munged_succesfully_batched:
-                res_ldsc[(tenk_batch, ukbb_batch)] = q.method(compare_gwases_batched,
-                                                              (res_munging[tuple(ukbb_batch)], tenk_batch, ukbb_batch))
+        for tenk_batch in sumstats_exists_ukbb_batched:
+            for ukbb_batch in sumstats_exists_tenk_batched:
+                res_ldsc[(tenk_batch, ukbb_batch)] = q.method(compare_gwases_batched, (tenk_batch, ukbb_batch))
         res_ldsc = {k: q.waitforresult(v) for k, v in res_ldsc.items()}
 
 
