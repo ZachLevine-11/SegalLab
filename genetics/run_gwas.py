@@ -41,9 +41,9 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader]
+#loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader]
 
-#loaders_list = [SerumMetabolomicsLoader]
+loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
 
 sleepPhenos =  ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
 liverPhenos = ["batch0.Average_SSP_Plus.glm.linear", "batch0.Average_ATT_Plus.glm.linear"]
@@ -732,7 +732,7 @@ if __name__ == "__main__":
     do_renaming = False
     redo_genetics_qc = False
     ldmethod = "clump"
-    do_clumping = True
+    do_clumping = False
     use_pfilter = False
     pass_cmd = False
     howmanyPCs = 10

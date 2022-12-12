@@ -34,6 +34,7 @@ from LabData.DataLoaders.HormonalStatusLoader import HormonalStatusLoader
 from LabData.DataLoaders.IBSTenkLoader import IBSTenkLoader
 from LabData.DataLoaders.GutMBLoader import GutMBLoader
 from LabData.DataLoaders.ChildrenLoader import ChildrenLoader
+from LabData.DataLoaders.RetinaScanLoader import RetinaScanLoader
 from LabData.DataLoaders.CGMLoader import CGMLoader
 from LabData.DataLoaders.PRSLoader import PRSLoader
 
@@ -174,7 +175,7 @@ def make_clustermaps(stackmat):
     s_sig_only_useful = s_sig.loc[:, mapper]
     s_sig_only_useful.columns = list(map(lambda thestr: thestr[0:20], s_sig_only_useful.columns))
     for theval in s_sig_only_useful.index.get_level_values(1).unique():
-        sns.clustermap(np.log10(s_sig_only_useful.loc[s_sig_only_useful.index.get_level_values(1) == theval,:]))
+        sns.clustermap(-np.log10(s_sig_only_useful.loc[s_sig_only_useful.index.get_level_values(1) == theval,:]), cmap = "Blues")
         plt.savefig("/home/zacharyl/Desktop/scores_figures/" + theval + ".png")
 
 ##print PRSES clusters from all clusters
@@ -216,7 +217,7 @@ def report_pheno(pheno, descriptionmap, stacked):
 if __name__ == "__main__":
     sethandlers()
     how = "q"
-    loaders_list = [SerumMetabolomicsLoader, GutMBLoader] ##from run_gwas
+    loaders_list = loaders_list ##from run_gwas
     ##needed to update the covariates
     ##only load the status table once and pass it around to save on memory
     status_table = read_status_table()
@@ -224,11 +225,11 @@ if __name__ == "__main__":
     min_subject_threshold = 2000
     most_frequent_val_max_freq = 0.95
     redo_collect_correct_pqtls = False
-    redo_association_tests_prs = True
+    redo_association_tests_prs = False
     redo_association_tests_pqtl = False
     redo_prs_pqtl_associations = False
     correct_beforehand = False ##keep off to use the model with built in correction for age, gender, and PCS
-    redo_loader_saving = True
+    redo_loader_saving = False
     if redo_collect_correct_pqtls:
         scores = combine_scores()
         if correct_beforehand:
