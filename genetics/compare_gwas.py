@@ -94,23 +94,32 @@ def munge_ukbb_batched(ukbb_batch):
         ukbb_munge_results[ukbb_fname] = ukbb_munge_res
     return ukbb_munge_results
 
-def compare_gwases_batched(tenk_fnames, ukbb_fnames):
-    broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
+def do_log(tenk_fname):
+    with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/" +
+              tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], "w") as f:
+        f.write("")
+    print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],
+          " added to exclusion list")
+
+def compare_gwases_batched(tenk_fnames, ukbb_fnames, exclude_broken_tenk_phenos = False):
+    if exclude_broken_tenk_phenos:
+        broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
+    else:
+        broken_tenk_phenos = []
     already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
     already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc if "_tenK_" in x and "_UKBB_" in x]
     for ukbb_fname in ukbb_fnames:
         ##Maps fname:munge res for this batch
         for tenk_fname in tenk_fnames:
-            if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
-                print("Starting ldsc between the two")
-                ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
-                ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],ukbb_fname.split("/")[-1].split(".")[0])
-                if ldsc_res == -1:  ##indicating a broken run
-                    with open("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/" +
-                                tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], "w") as f:
-                        f.write("")
-                    print("Broken phenotype from 10K is ", tenk_fname.split("batch0.")[-1].split(".glm.linear")[0], " added to exclusion list")
-                    print("Finished ldsc")
+            try:
+                if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
+                    print("Starting ldsc between the two")
+                    ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
+                    ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],ukbb_fname.split("/")[-1].split(".")[0])
+                    if ldsc_res == -1:  ##indicating a broken run
+                        do_log(tenk_fname)
+            except Exception:
+                do_log(tenk_fname)
 
 def unstack_matrix(ldsc_mat):
     resg = ldsc_mat["Genetic Correlation"]
@@ -120,8 +129,11 @@ def unstack_matrix(ldsc_mat):
 ##Truncated phenotype names will always be re munged because the phenotype name doesn't match the munged phenotype name.
 ##To avoid munging anything do already_munged_all = True
 ##There's no way around this right now, but it's only three phenotypes
-def compute_all_cross_corr(already_munged_all = True, batch_width = 10, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
-    broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
+def compute_all_cross_corr(already_munged_all = True, exclude_broken_tenk_phenos = False, batch_width = 10, containing_dirs = ["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/metab/gwas_results_metab/", "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/microbiome/gwas_results_mb/"]):
+    if exclude_broken_tenk_phenos:
+        broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
+    else:
+        broken_tenk_phenos = []
     res_munging = {}
     res_ldsc = {}
     with qp(jobname="ldsc", delay_batch = 30) as q:
@@ -180,15 +192,19 @@ def compute_all_cross_corr(already_munged_all = True, batch_width = 10, containi
             join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "tenk_gwases_munged/",
                  f)) and f.endswith(".sumstats.gz")]))
         sumstats_exists_ukbb_batched = np.array_split(sumstats_exists_ukbb, len(sumstats_exists_ukbb)//batch_width)
-        sumstats_exists_tenk_batched = np.array_split(sumstats_exists_tenk, len(sumstats_exists_tenk)//batch_width)
+        sumstats_exists_tenk_batched = np.array_split(sumstats_exists_tenk, len(sumstats_exists_tenk)//(4*batch_width))
         ##Only operate on GWASES with actual sumstats.gz files at this point, when we've considered all traits
         i = 0
         print("Starting ldscore")
         for ukbb_batch in sumstats_exists_ukbb_batched:
             for tenk_batch in sumstats_exists_tenk_batched:
-                res_ldsc[i] = q.method(compare_gwases_batched, (tenk_batch, ukbb_batch))
+                res_ldsc[i] = q.method(compare_gwases_batched, (tenk_batch, ukbb_batch, exclude_broken_tenk_phenos))
                 i += 1
-        res_ldsc = {k: q.waitforresult(v) for k, v in res_ldsc.items()}
+        for k, v in res_ldsc.items():
+            try:
+                res_ldsc[k] =  q.waitforresult(v)
+            except Exception:
+                print("Job fell off: ", k)
 
 def find_in_str_list(matchstr, thelist):
     i = 0
@@ -229,12 +245,12 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
     res = {}
     for file in all_files:
             p, corr, her = parse_single_ldsc_file(file, dir = dir)
-            if not is_ldsc_broken(p, corr):
+            if not is_ldsc_broken(p, corr, her):
                 res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr), "10K Trait Heritability": float(her)}
             else:
-                res = [(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": None, "Genetic Correlation": None, "10K Trait Heritability": None}
+                res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": None, "Genetic Correlation": None, "10K Trait Heritability": None}
     res = pd.DataFrame(res).T
-    res["P"] = multipletests(pvals = res["P"], method = "bonferroni")[1]
+    res.loc[~res.P.isna(), "P"] = multipletests(pvals = res.loc[~res.P.isna(), "P"], method = "bonferroni")[1]
     return res
 
 def gen_feature_corr(stackmat, genmat):
