@@ -66,7 +66,7 @@ def read_original_plink_bins():
     return(original_bin)
 
 def extract_height(dir="/net/mraid08/export/jasmine/zach/height_gwas/"):
-    df = BodyMeasuresLoader().get_data(study_ids=["10K"]).df.copy()
+    df = BodyMeasuresLoader().get_data(study_ids=[10, 1001]).df.copy()
     height_data = df.reset_index().loc[:, ["height", "RegistrationCode"]]
     height_data.columns = ["height", "IID"]
     height_data["FID"] = "0"  ##to allign with binary bed file
@@ -177,12 +177,12 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
         df = pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/biological_age/raw_data_from_noam/residuals_df_equalzscore.csv").set_index("RegistrationCode")
         df = df.drop("gender", 1) ##Don't GWAS gender, and we already have gender in the covariates file too
     elif loader == SerumMetabolomicsLoader:
-        df = fix_norm_dist_capping_type_conversion(loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=["10K"], groupby_reg = groupby).df.copy(), loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
+        df = fix_norm_dist_capping_type_conversion(loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=[10, 1001], groupby_reg = groupby).df.copy(), loader().get_data(precomputed_loader_fname = "metab_10k_data_RT_clustering_pearson08_present05_baseline", study_ids=[10, 1001], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
         df["RegistrationCode"] = list(map(lambda serum: '10K_' + serum.split('_')[0], df.index.values))
         df = df.set_index("RegistrationCode")
     elif loader == GutMBLoader:
-        df_all_data = fix_norm_dist_capping_type_conversion(loader().get_data("segal_species", study_ids = ["10K"], groupby_reg = groupby).df.copy(), loader().get_data("segal_species", study_ids = ["10K"], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
-        dfmeta = loader().get_data("segal_species", study_ids = ["10K"], groupby_reg = groupby).df_metadata
+        df_all_data = fix_norm_dist_capping_type_conversion(loader().get_data("segal_species", study_ids = ["10K"], groupby_reg = groupby).df.copy(), loader().get_data("segal_species", study_ids = [10, 1001], groupby_reg = groupby, norm_dist_capping = norm_dist_capping).df.copy())
+        dfmeta = loader().get_data("segal_species", study_ids = [10, 1001], groupby_reg = groupby).df_metadata
         df = df_all_data.reset_index(drop = False)
         df["RegistrationCode"] = df.reset_index(drop = False).SampleName.apply(dfmeta.RegistrationCode.to_dict().get)
         df = df.set_index("RegistrationCode").drop("SampleName", axis = 1)
@@ -203,7 +203,7 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
         #df = pd.read_pickle("/net/mraid08/export/genie/LabData/Cache/CGMMeasures/cgmquantify_features.cch").set_index("RegistrationCode").drop("ConnectionID", 1)
     elif loader == RetinaScanLoader:
         ##Encode left and right eye measurements as separate columns instead of indexes
-        df = RetinaScanLoader().get_data(study_ids = ["10K"]).df.copy().unstack() ##Don't groupby reg here because the extra index (right vs left eye) will mess things up
+        df = RetinaScanLoader().get_data(study_ids = [10, 1001]).df.copy().unstack() ##Don't groupby reg here because the extra index (right vs left eye) will mess things up
         df.columns = list(map(lambda col_tuple: str(col_tuple[0]) + "_" + str(col_tuple[1]), df.columns))
         df = fix_norm_dist_capping_type_conversion(df, cappedDf = NormDistCapping(sample_size_frac=sample_size_frac, remove_sigmas = remove_sigmas).fit_transform(df))
         if groupby == "latest":
@@ -211,7 +211,7 @@ def read_loader_in(loader, numeric_cols = "notstrict", groupby = "latest", sampl
         else:  ##assume we want the mean
             df = df.groupby("RegistrationCode").mean()
     else:
-        df = fix_norm_dist_capping_type_conversion(notCappedDf = loader().get_data(study_ids=["10K"]).df.copy(), cappedDf = loader().get_data(study_ids=["10K"], norm_dist_capping = norm_dist_capping, groupby_reg = groupby).df.copy())
+        df = fix_norm_dist_capping_type_conversion(notCappedDf = loader().get_data(study_ids=[10, 1001]).df.copy(), cappedDf = loader().get_data(study_ids=[10, 1001], norm_dist_capping = norm_dist_capping, groupby_reg = groupby).df.copy())
     if loader == QuestionnairesLoader: ##cols 734 to 804 in Questionnaires are na for everyone (empty), remove them to avoid future difficulties
         df = df.drop(df.columns[range(733, 805, 1)], axis = 1)
     elif loader == Medications10KLoader:
@@ -329,7 +329,7 @@ def make_plink2_command(pheno_name, use_short_names = False, short_names_table_f
     return cmd
 
 def update_covariates(dir="/net/mraid08/export/jasmine/zach/height_gwas/", status_table = None, keep_fid = False):
-    df = SubjectLoader().get_data(study_ids = ["10K"]).df.copy()
+    df = SubjectLoader().get_data(study_ids = [10, 1001]).df.copy()
     new_covar_data = df.reset_index().loc[:, ["gender", "age", "RegistrationCode"]]
     new_covar_data.columns = ["gender", "age", "IID"]
     if keep_fid:

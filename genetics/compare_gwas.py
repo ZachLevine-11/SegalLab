@@ -8,7 +8,7 @@ import subprocess
 from LabData.DataLoaders.PRSLoader import PRSLoader
 from scores_work import stack_matrices_and_bonferonni_correct
 import csv
-from scipy.stats.stats import pearsonr
+from scipy.stats.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 from LabQueue.qp import qp
 from GeneticsPipeline.config import qp_running_dir
@@ -260,11 +260,14 @@ def gen_feature_corr(stackmat, genmat):
     genmat_dict = genmat.to_dict()["P"]
     stackmat_dict = {}
     for k,v in genmat_dict.items():
-        stackmat_dict[k] = float(stackmat.loc[k[0]].T.loc[inversedict[k[1]]].values)
+        try: ##In case the PRS meaning doens't exist, like if its not in the columns metadata
+            stackmat_dict[k] = float(stackmat.loc[k[0]].T.loc[inversedict[k[1]]].values)
+        except KeyError:
+            pass
     combined = pd.concat([pd.Series(stackmat_dict), pd.Series(genmat_dict)], 1)
     combined.columns = ["feature_space", "genetic_space"]
     combined = combined.dropna()
-    return combined, pearsonr(combined.iloc[:, 1], combined.iloc[:, 0])
+    return combined, spearmanr(combined.iloc[:, 1], combined.iloc[:, 0])
 
 if __name__ == "__main__":
     sethandlers()
