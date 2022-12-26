@@ -8,6 +8,7 @@ import subprocess
 from LabData.DataLoaders.PRSLoader import PRSLoader
 from scores_work import stack_matrices_and_bonferonni_correct
 import csv
+from scipy import stats
 from scipy.stats.stats import spearmanr
 from statsmodels.stats.multitest import multipletests
 from LabQueue.qp import qp
@@ -24,8 +25,6 @@ def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/expor
     try:
         subprocess.call(["~/PycharmProjects/genetics/do_ldsc_cmd.sh" + " " + rg_arg + " " + second_arg + " " + third_arg + " " + fourth_arg], shell=True)
     except Exception:
-        return -1
-    if is_ldsc_broken(*parse_single_ldsc_file(fourth_arg + ".log")):
         return -1
     else:
         return 0
@@ -136,7 +135,7 @@ def compute_all_cross_corr(already_munged_all = True, exclude_broken_tenk_phenos
         broken_tenk_phenos = []
     res_munging = {}
     res_ldsc = {}
-    with qp(jobname="ldsc", delay_batch = 30) as q:
+    with qp(jobname="ldsc") as q:
         q.startpermanentrun()
         if not already_munged_all:
             all_tenk_fnames = []
@@ -213,23 +212,40 @@ def find_in_str_list(matchstr, thelist):
             return i
         i += 1
 
-def parse_single_ldsc_file(file, dir = ""):
-    p, corr, her = "nan", "nan", "nan"
-    with open(dir + file, "r") as f:
-        contents = f.readlines()
-        p_index = find_in_str_list("P: ", contents)
-        if p_index is not None:  ##Indicating ldsc failed
-            p = contents[p_index].split("P: ")[1].split("\n")[0]
-            corr = contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[0]
-            ##The 10K trait is always phenotype 2/2 in the ldsc report
-            her = contents[find_in_str_list("Heritability of phenotype 2/2", contents)+2].split("Total Observed scale h2: ")[1].split(" (")[0]
-    return p, corr, her
-
-def is_ldsc_broken(p, corr, her):
-    if p != "nan" and corr != "nan" and p != 'nan (nan) (h2  out of bounds)' and corr != 'nan (nan) (h2  out of bounds)':
-        return False
-    else:
-        return True
+def parse_single_ldsc_file(file, dir = "", justTemplate = False):
+    ldsc_int, corr, her = None, None, None
+    ldsc_int_p, corr_p, her_p = None, None, None
+    ldsc_int_SE, corr_SE, her_SE = None, None, None
+    if not justTemplate:
+        with open(dir + file, "r") as f:
+            contents = f.readlines()
+            p_index = find_in_str_list("P: ", contents)
+            if p_index is not None:  ##Indicating that the ldsc run was sucessful
+                tenk_pheno_log_index = find_in_str_list("Heritability of phenotype 2/2", contents)
+                if tenk_pheno_log_index is not None: ##if this fails, everything else will have failed too
+                    ##The 10K trait is always phenotype 2/2 in the ldsc report
+                    her = float(contents[tenk_pheno_log_index+2].split("Total Observed scale h2: ")[1].split(" (")[0])
+                    her_SE = float(contents[tenk_pheno_log_index+2].split("Total Observed scale h2: ")[1].split(" (")[-1].split(")")[0])
+                    her_p = stats.norm.sf(her/her_SE)
+                    ldsc_int = float(contents[tenk_pheno_log_index+5].split("Intercept: ")[1].split(" (")[0])
+                    ldsc_int_SE = float(contents[tenk_pheno_log_index+5].split("Intercept: ")[1].split(" (")[-1].split(")")[0])
+                    ldsc_int_p = stats.norm.sf((ldsc_int-1.0)/ldsc_int_SE)
+                    try: ##For negative h2 estimates genetic correlation will fail but other stuff will pass. Allow for this.
+                        corr = float(contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[0])
+                        corr_p = float(contents[p_index].split("P: ")[1].split("\n")[0])
+                        corr_SE = float(contents[find_in_str_list("Genetic Correlation: ", contents)].split("Genetic Correlation: ")[1].split(" (")[-1].split(")")[0])
+                    except ValueError: ##indicating a Nan in the log
+                        pass
+        return {
+            "gencorr": corr,
+            "gencorr_p": corr_p,
+            "gencorr_SE": corr_p,
+            "10k_trait_heritability": her,
+            "10k_trait_heritability_p": her_p,
+            "10k_trait_heritability_SE" : her_SE,
+            "ldsc_intercept": ldsc_int,
+            "ldsc_intercept_p": ldsc_int_p,
+            "ldsc_intercept_SE": ldsc_int_SE}
 
 def whichLoader(phenoName, dexacols, cgmcols):
     if phenoName in cgmcols:
@@ -241,16 +257,21 @@ def whichLoader(phenoName, dexacols, cgmcols):
 
 def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/all/"):
     ukbb_meaning_dict = PRSLoader().get_data().df_columns_metadata.h2_description.to_dict()
-    all_files = [f for f in os.listdir(dir) if isfile(join(dir, f))]
+    print("Indexing all ldsc files")
+    all_files =  [f for f in os.listdir(dir) if isfile(join(dir, f))]
     res = {}
+    i = 0
+    numFiles = len(all_files)
+    print("Finished indexing ", numFiles, " files")
     for file in all_files:
-            p, corr, her = parse_single_ldsc_file(file, dir = dir)
-            if not is_ldsc_broken(p, corr, her):
-                res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": float(p), "Genetic Correlation": float(corr), "10K Trait Heritability": float(her)}
-            else:
-                res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = {"P": None, "Genetic Correlation": None, "10K Trait Heritability": None}
+        if i % 1000 == 0:
+            print(100*i/numFiles, "%")
+        res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = parse_single_ldsc_file(file, dir = dir)
+        i += 1
     res = pd.DataFrame(res).T
-    res.loc[~res.P.isna(), "P"] = multipletests(pvals = res.loc[~res.P.isna(), "P"], method = "bonferroni")[1]
+    res.loc[~res["gencorr_p"].isna(), "gencorr_p"] = multipletests(pvals = res.loc[~res["gencorr_p"].isna(), "gencorr_p"], method = "bonferroni")[1]
+    res.loc[~res["ldsc_intercept_p"].isna(), "ldsc_intercept_p"] = multipletests(pvals = res.loc[~res["ldsc_intercept_p"].isna(), "ldsc_intercept_p"], method = "bonferroni")[1]
+    res.loc[~res["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"] = multipletests(pvals = res.loc[~res["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"], method = "bonferroni")[1]
     return res
 
 def gen_feature_corr(stackmat, genmat):
@@ -272,6 +293,7 @@ def gen_feature_corr(stackmat, genmat):
 if __name__ == "__main__":
     sethandlers()
     os.chdir(qp_running_dir)
-    do_all = True
+    do_all = False
     if do_all:
         compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])
+    res = read_all_ldsc()

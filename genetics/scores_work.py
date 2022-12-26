@@ -113,8 +113,11 @@ def make_test_all_loaders(loaders = None, loop = False, which = "PQTLS", test = 
             res_m_loader.to_csv(raw_matrices_save_path_prs + justname)
             print("Wrote: " + raw_matrices_save_path_prs + justname)
 
-def stack_matrices_and_bonferonni_correct(results_dir = raw_matrices_save_path_prs, fillwithNA = True, orderbySig = False):
-    all_results_files = [f for f in os.listdir(results_dir) if isfile(join(results_dir, f))]
+def stack_matrices_and_bonferonni_correct(results_dir = raw_matrices_save_path_prs, fillwithNA = True, orderbySig = False, include_mb_metab = False):
+    if include_mb_metab:
+        all_results_files = [f for f in os.listdir(results_dir) if isfile(join(results_dir, f))]
+    else:
+        all_results_files = [f for f in os.listdir(results_dir) if isfile(join(results_dir, f)) and "GutMBLoader" not in f and "SerumMetabolomicsLoader" not in f]
     dfs = []
     loader_col = []
     for res_file in all_results_files:

@@ -41,9 +41,9 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-#loaders_list = [CGMLoader, UltrasoundLoader, ABILoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader]
+loaders_list = [SerumMetabolomicsLoader, CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader]
 
-loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
+#loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
 
 sleepPhenos =  ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
 liverPhenos = ["batch0.Average_SSP_Plus.glm.linear", "batch0.Average_ATT_Plus.glm.linear"]
@@ -721,11 +721,11 @@ if __name__ == "__main__":
     do_batched = True
     min_subject_threshold = 2000
     singleBatch = True ##much faster
-    redo_setup = False
+    redo_setup = True
     ##Can use the close relations pruning list from a previous GWAS run
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
-    remake_batches = False
+    remake_batches = True
     do_GWAS = False
     do_noam = False
     lenbatches = 1
