@@ -274,6 +274,7 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
     ##Parition into gencorr and heritability results
     res_heritability = res[["10k_trait_heritability", "10k_trait_heritability_p", "10k_trait_heritability_SE", "ldsc_intercept", "ldsc_intercept_p", "ldsc_intercept_SE"]]
     ##Take the median heritability estimate, its P, and its SE for each trait
+    res_heritability = res_heritability.dropna()
     res_heritability = res_heritability.groupby("10K_Trait").median()
     res_gencorr = res.drop(list(res_heritability.columns), axis = 1)
     ##Adjust gencorr for every genetic correlation and separately adjust heritability only for the 652 traits we adjusted
@@ -304,4 +305,4 @@ if __name__ == "__main__":
     do_all = True
     if do_all:
         compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])
-    res = read_all_ldsc()
+    res_gencorr, res_heritability = read_all_ldsc()
