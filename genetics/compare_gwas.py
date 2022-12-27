@@ -264,15 +264,23 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
     numFiles = len(all_files)
     print("Finished indexing ", numFiles, " files")
     for file in all_files:
-        if i % 1000 == 0:
+        if i % 2000 == 0:
             print(100*i/numFiles, "%")
         res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = parse_single_ldsc_file(file, dir = dir)
         i += 1
+    ##Save all results
     res = pd.DataFrame(res).T
-    res.loc[~res["gencorr_p"].isna(), "gencorr_p"] = multipletests(pvals = res.loc[~res["gencorr_p"].isna(), "gencorr_p"], method = "bonferroni")[1]
-    res.loc[~res["ldsc_intercept_p"].isna(), "ldsc_intercept_p"] = multipletests(pvals = res.loc[~res["ldsc_intercept_p"].isna(), "ldsc_intercept_p"], method = "bonferroni")[1]
-    res.loc[~res["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"] = multipletests(pvals = res.loc[~res["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"], method = "bonferroni")[1]
-    return res
+    res.index.names = ["10K_Trait", "UKBB_Trait"]
+    ##Parition into gencorr and heritability results
+    res_heritability = res[["10k_trait_heritability", "10k_trait_heritability_p", "10k_trait_heritability_SE", "ldsc_intercept", "ldsc_intercept_p", "ldsc_intercept_SE"]]
+    ##Take the median heritability estimate, its P, and its SE for each trait
+    res_heritability = res_heritability.groupby("10K_Trait").median()
+    res_gencorr = res.drop(list(res_heritability.columns), axis = 1)
+    ##Adjust gencorr for every genetic correlation and separately adjust heritability only for the 652 traits we adjusted
+    res_gencorr.loc[~res_gencorr["gencorr_p"].isna(), "gencorr_p"] = multipletests(pvals = res_gencorr.loc[~res_gencorr["gencorr_p"].isna(), "gencorr_p"], method = "bonferroni")[1]
+    res_heritability.loc[~res_heritability["ldsc_intercept_p"].isna(), "ldsc_intercept_p"] = multipletests(pvals = res_heritability.loc[~res_heritability["ldsc_intercept_p"].isna(), "ldsc_intercept_p"], method = "bonferroni")[1]
+    res_heritability.loc[~res_heritability["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"] = multipletests(pvals = res_heritability.loc[~res_heritability["10k_trait_heritability_p"].isna(), "10k_trait_heritability_p"], method = "bonferroni")[1]
+    return res_gencorr, res_heritability
 
 def gen_feature_corr(stackmat, genmat):
     inversedict = PRSLoader().get_data().df_columns_metadata.reset_index().set_index("h2_description").phenotype_code.to_dict()
@@ -293,7 +301,7 @@ def gen_feature_corr(stackmat, genmat):
 if __name__ == "__main__":
     sethandlers()
     os.chdir(qp_running_dir)
-    do_all = False
+    do_all = True
     if do_all:
         compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])
     res = read_all_ldsc()
