@@ -269,12 +269,11 @@ def read_all_ldsc(dir = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/l
         res[(file.split("tenK_")[-1].split("_UKBB")[0], ukbb_meaning_dict[file.split("UKBB_")[-1].split(".log")[0]])] = parse_single_ldsc_file(file, dir = dir)
         i += 1
     ##Save all results
-    res = pd.DataFrame(res).T
+    res = pd.DataFrame(res).T.astype(float) ##Otherwise the columns are an "object" type and groupby will fail
     res.index.names = ["10K_Trait", "UKBB_Trait"]
     ##Parition into gencorr and heritability results
     res_heritability = res[["10k_trait_heritability", "10k_trait_heritability_p", "10k_trait_heritability_SE", "ldsc_intercept", "ldsc_intercept_p", "ldsc_intercept_SE"]]
     ##Take the median heritability estimate, its P, and its SE for each trait
-    res_heritability = res_heritability.dropna()
     res_heritability = res_heritability.groupby("10K_Trait").median()
     res_gencorr = res.drop(list(res_heritability.columns), axis = 1)
     ##Adjust gencorr for every genetic correlation and separately adjust heritability only for the 652 traits we adjusted
@@ -302,7 +301,7 @@ def gen_feature_corr(stackmat, genmat):
 if __name__ == "__main__":
     sethandlers()
     os.chdir(qp_running_dir)
-    do_all = True
+    do_all = False
     if do_all:
         compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])
     res_gencorr, res_heritability = read_all_ldsc()
