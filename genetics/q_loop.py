@@ -1,5 +1,5 @@
 import numpy as np
-from LabQueue.qp import fakeqp as qp
+from LabQueue.qp import qp
 from LabUtils.addloglevels import sethandlers
 from GeneticsPipeline.config import gencove_logs_path
 import pandas as pd
@@ -12,12 +12,12 @@ from manytests import manyTestsbatched
 ##index_is_10k indicates whether the index of the data matches the 10k version or if specific conversion is required
 ## see if matches prs
 ##use_clustering is only defined for Metabolomics Data
-def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", usePath = False, prs_path = "/home/zacharyl/Desktop/intermed_prs.csv",  prs_from_loader = None, use_clustering = False, use_imputed = False, correct_for_age_gender = False, saveName = None, get_data_args = None, tailsTest = "rightLeft", random_shuffle_prsLoader = False, use_prsLoader = True): ##test can be "t" for t test or "r" for regression
+def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", usePath = False, prs_path = "/home/zacharyl/Desktop/intermed_prs.csv",  prs_from_loader = None, use_clustering = False, use_imputed = False, correct_for_age_gender = False, saveName = None, get_data_args = None, tailsTest = "rightLeft", random_shuffle_prsLoader = False, use_prsLoader = True, prs_id = 0): ##test can be "t" for t test or "r" for regression
     os.chdir("/net/mraid08/export/mb/logs/")
     #os.chdir(gencove_logs_path)
     #sethandlers() ##should only set once, need a switch to not do if in a loop, but queing might fix this problem
     ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
-    with qp(jobname= str(prs_from_loader)[0:5], delay_batch = 3, _suppress_handlers_warning= True) as q:
+    with qp(jobname= saveName[0:2]+str(prs_id), delay_batch = 3, _suppress_handlers_warning= True) as q:
         q.startpermanentrun()
         batch_width = 400
         ##automatically grab tails or continuous data depending on what we want

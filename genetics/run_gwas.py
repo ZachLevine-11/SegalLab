@@ -41,7 +41,7 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-loaders_list =  [SerumMetabolomicsLoader, CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader]
+loaders_list =  [CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader, SerumMetabolomicsLoader]
 
 #loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
 

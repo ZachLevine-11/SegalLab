@@ -11,7 +11,7 @@ from modified_tom_functions import getsigunique
 def q_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = "mean", use_clustering = True, use_imputed = True, correct_for_age_gender = False, saveName = None, get_data_args = None, tailsTest = "rightLeft", usePath = False, prs_path = "/home/zacharyl/Desktop/intermed_prs.csv", random_shuffle_prsLoader = False, use_prsLoader = True):
     os.chdir("/net/mraid08/export/mb/logs/")
     #sethandlers()
-    with qp(jobname="q", delay_batch = 10, _suppress_handlers_warning =True) as q:
+    with qp(jobname=saveName, delay_batch = 10, _suppress_handlers_warning =True) as q:
         q.startpermanentrun()
         ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
         if use_prsLoader:
@@ -24,12 +24,12 @@ def q_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = "me
         ##each batch is one prs
         for prs_id in range(len(prses)):
             ##empty string matches positional argument for PRSpath
-            fundict[prs_id] = q.method(q_loop, (loader, index_is_10k, test, duplicate_rows, usePath, prs_path, prses[prs_id], use_clustering, use_imputed, correct_for_age_gender, saveName, get_data_args, tailsTest, random_shuffle_prsLoader, use_prsLoader))  ##test can be "t" for t test or "r" for regression))
+            fundict[prs_id] = q.method(q_loop, (loader, index_is_10k, test, duplicate_rows, usePath, prs_path, prses[prs_id], use_clustering, use_imputed, correct_for_age_gender, saveName, get_data_args, tailsTest, random_shuffle_prsLoader, use_prsLoader, prs_id))  ##test can be "t" for t test or "r" for regression))
             print("now onto prs: ", prs_id)
         for k, v in fundict.items():
             try:
                 ##For each PRS id, a set of the correponding P value for each column
-                fundic[k] = q.waitforresult(v)
+                fundict[k] = q.waitforresult(v)
             except Exception:
                 fundict[k] = None ##broken PRSes
     for k,v in fundict.copy().items(): ##catch broken PRSes, don't iterate over original dictionary
