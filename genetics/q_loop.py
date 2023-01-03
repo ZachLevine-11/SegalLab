@@ -17,7 +17,7 @@ def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", us
     #os.chdir(gencove_logs_path)
     #sethandlers() ##should only set once, need a switch to not do if in a loop, but queing might fix this problem
     ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
-    with qp(jobname= str(prs_from_loader), delay_batch = 3, _suppress_handlers_warning= True) as q:
+    with qp(jobname= str(prs_from_loader)[0:5], delay_batch = 3, _suppress_handlers_warning= True) as q:
         q.startpermanentrun()
         batch_width = 400
         ##automatically grab tails or continuous data depending on what we want
@@ -50,8 +50,12 @@ def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", us
             else: ##otherwise even for corrected regression since we only have one batch the prs column is already included in batch_ids
                 fundict[i] = q.method(manyTestsbatched, (dataprs_prs_index.iloc[:, batch_ids], test, tailsTest, False))
             varNames[i] = pd.Series(dataprs_prs_index.columns[batch_ids])
-        fundict = {k: q.waitforresult(v) for k, v in fundict.items()}
-    ps = pd.concat(fundict.values(), axis=0) ##in order of columns
+        for k,v in fundict.items():
+            try:
+                fundict[k] = q.waitforresult(v)
+            except Exception:
+                fundict[k] = None
+    ps = pd.concat(fundict.values(), axis=0, join = "outer") ##in order of columns
     ps_corrected = ps
     varNames = pd.Series(varNames)
     finalres = pd.DataFrame(ps_corrected, index = pd.concat(varNames.values, axis = 0)) ##can also just use the names of the columns in the original data from the loader, but this method lets us skip columns between successive batches

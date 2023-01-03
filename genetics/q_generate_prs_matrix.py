@@ -26,11 +26,16 @@ def q_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = "me
             ##empty string matches positional argument for PRSpath
             fundict[prs_id] = q.method(q_loop, (loader, index_is_10k, test, duplicate_rows, usePath, prs_path, prses[prs_id], use_clustering, use_imputed, correct_for_age_gender, saveName, get_data_args, tailsTest, random_shuffle_prsLoader, use_prsLoader))  ##test can be "t" for t test or "r" for regression))
             print("now onto prs: ", prs_id)
-        fundict = {k: q.waitforresult(v) for k, v in fundict.items()}
+        for k, v in fundict.items():
+            try:
+                ##For each PRS id, a set of the correponding P value for each column
+                fundic[k] = q.waitforresult(v)
+            except Exception:
+                fundict[k] = None ##broken PRSes
     for k,v in fundict.copy().items(): ##catch broken PRSes, don't iterate over original dictionary
         if v is None:
             del fundict[k]
-    final_res = pd.concat(fundict.values(), axis = 1)
+    final_res = pd.concat(fundict.values(), axis = 1, join = "outer")
     #final_res = final_res.loc[:,~final_res.columns.duplicated()] ##drop the duplicate indices we've accumulated atthis point
     return final_res
 
