@@ -94,12 +94,12 @@ def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_asso
     if cached: ##Much faster
         cached_list = list(pd.read_csv(dir + fileName).iloc[:, 1]) ##column 0 holds an aribitrary index, column 1 has the list we care about
         return cached_list
-    mydata = PRSLoader().get_data()
+    theprses = PRSLoader().get_data().df.columns
     # removing duplicated index
-    mydata.df = mydata.df.loc[:, ~mydata.df.columns.duplicated()]
+    theprses = list(set([x for x in theprses if not str(x).endswith("_raw")]))
     # loading metadata for PRS
     if include_all: ##include all columns in analysis
-        return list(mydata.df.columns)
+        return theprses
     metadata_table = pd.read_excel(
         '/net/mraid08/export/genie/LabData/Data/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/UKBB_GWAS_Imputed_v3-File_Manifest_Release_20180731.xlsx',
         sheet_name='Manifest 201807', engine='openpyxl')

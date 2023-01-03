@@ -20,7 +20,11 @@ def manyTestsbatched(batch, test, tailsTest, swap = False):
     if test == "corrected_regression":
         covars = pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt", sep="\t")#if using plink1 covariates, need to .drop("FID", axis=1)
         status_table = read_status_table()
-        status_table = status_table[status_table.passed_qc].copy()
+        try:
+            status_table = status_table[status_table.passed_qc].copy()
+        except ValueError:  ##In case the genetics pipeline is running
+            status_table = status_table.dropna()
+            status_table = status_table[status_table.passed_qc].copy()
         covars["RegistrationCode"] = covars["IID"].apply(status_table.set_index("gencove_id").RegistrationCode.to_dict().get)
         covars = covars.drop("IID", axis = 1).set_index("RegistrationCode", drop = True)
     pvals = {}

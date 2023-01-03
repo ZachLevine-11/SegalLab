@@ -16,12 +16,17 @@ from GeneticsPipeline.config import qp_running_dir
 from LabData.DataLoaders.DEXALoader import DEXALoader
 from LabData.DataLoaders.CGMLoader import CGMLoader
 
+##Take the gwas names without filepaths, just the phenotype/PRS names
 ##We need a specific conda installation for this so it can't run on the queue or with shellcommandexecute
-def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/"):
-    rg_arg = mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz"
+def compareGwases(tenk_gwas_name, ukbb_gwas_name, mainpath = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/", bothTenK = False):
     second_arg = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/"
     third_arg =  "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/eur_w_ld_chr/"
-    fourth_arg = mainpath + "all/" + "_tenK_" + tenk_gwas_name.split("batch0.")[-1].split(".glm.linear")[0] + "_UKBB_" + ukbb_gwas_name.split("/")[-1]
+    if not bothTenK:
+        rg_arg = mainpath + "ukbb_gwases_munged/" + ukbb_gwas_name +".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz"
+        fourth_arg = mainpath + "all/" + "_tenK_" + tenk_gwas_name + "_UKBB_" + ukbb_gwas_name
+    else:
+        rg_arg = mainpath + "tenk_gwases_munged/" + ukbb_gwas_name + ".sumstats.gz," + mainpath + "tenk_gwases_munged/" + tenk_gwas_name + ".sumstats.gz"
+        fourth_arg = mainpath + "all/" + "_tenK_" + tenk_gwas_name + "_UKBB_" + ukbb_gwas_name
     try:
         subprocess.call(["~/PycharmProjects/genetics/do_ldsc_cmd.sh" + " " + rg_arg + " " + second_arg + " " + third_arg + " " + fourth_arg], shell=True)
     except Exception:
@@ -105,8 +110,10 @@ def compare_gwases_batched(tenk_fnames, ukbb_fnames, exclude_broken_tenk_phenos 
         broken_tenk_phenos  = [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/broken_tenk_phenos/", f))]
     else:
         broken_tenk_phenos = []
-    already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
-    already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc if "_tenK_" in x and "_UKBB_" in x]
+    ##Very slow with a lot of files, so don't index here
+    #already_done_ldsc = list(map(lambda thestr: thestr.split(".")[0], [f for f in os.listdir("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/") if isfile(join("/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/ldsc/" + "all/", f))]))
+    #already_done_pairs = [[x.split("_tenK_")[1].split("_UKBB_")[0], x.split("_tenK_")[1].split("_UKBB_")[1].split(".log")[0]] for x in already_done_ldsc if "_tenK_" in x and "_UKBB_" in x]
+    already_done_pairs = []
     for ukbb_fname in ukbb_fnames:
         ##Maps fname:munge res for this batch
         for tenk_fname in tenk_fnames:
@@ -114,7 +121,7 @@ def compare_gwases_batched(tenk_fnames, ukbb_fnames, exclude_broken_tenk_phenos 
                 if tenk_fname not in broken_tenk_phenos and [tenk_fname, ukbb_fname] not in already_done_pairs:
                     print("Starting ldsc between the two")
                     ##If heritability of the 10K trait was found to be invalid in another ldsc run (with a different phenotype), skip reruns of it
-                    ldsc_res = compareGwases(tenk_fname.split("batch0.")[-1].split(".glm.linear")[0],ukbb_fname.split("/")[-1].split(".")[0])
+                    ldsc_res = compareGwases(tenk_fname, ukbb_fname)
                     if ldsc_res == -1:  ##indicating a broken run
                         do_log(tenk_fname)
             except Exception:
@@ -304,4 +311,4 @@ if __name__ == "__main__":
     do_all = False
     if do_all:
         compute_all_cross_corr(containing_dirs=["/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/"])
-    res_gencorr, res_heritability = read_all_ldsc()
+    #res_gencorr, res_heritability = read_all_ldsc()

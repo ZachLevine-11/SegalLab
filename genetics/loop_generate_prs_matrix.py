@@ -8,7 +8,7 @@ def loop_generate_prs_matrix(loader, index_is_10k, test = "m", duplicate_rows = 
     fundict = {}
     ###We also care about the column names
     if use_prsLoader:
-        prses = getsigunique()#[0:120]
+        prses = getsigunique(cached = False, include_all = True)
     else:
         prses = pd.read_csv("/net/mraid08/export/jasmine/zach/scores/score_results/SOMAscan/scores_all_raw.csv").set_index("RegistrationCode").columns
     ##each batch is one prs

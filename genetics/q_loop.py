@@ -17,7 +17,7 @@ def q_loop(loader, index_is_10k = False, test = "t", duplicate_rows = "last", us
     #os.chdir(gencove_logs_path)
     #sethandlers() ##should only set once, need a switch to not do if in a loop, but queing might fix this problem
     ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
-    with qp(jobname= "z_in", max_r = 100, max_u = 100, _suppress_handlers_warning= True) as q:
+    with qp(jobname= str(prs_from_loader), delay_batch = 3, _suppress_handlers_warning= True) as q:
         q.startpermanentrun()
         batch_width = 400
         ##automatically grab tails or continuous data depending on what we want

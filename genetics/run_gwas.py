@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from pandas_plink import read_plink1_bin, write_plink1_bin
+from pandas_plink import read_plink1_bin
 import os
 import ast
 from os.path import isfile, join, getmtime
@@ -41,7 +41,7 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
-loaders_list = [SerumMetabolomicsLoader, CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader]
+loaders_list =  [SerumMetabolomicsLoader, CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader]
 
 #loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
 
@@ -726,7 +726,7 @@ if __name__ == "__main__":
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
     remake_batches = True
-    do_GWAS = False
+    do_GWAS = True
     do_noam = False
     lenbatches = 1
     do_renaming = False

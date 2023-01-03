@@ -26,12 +26,14 @@ from LabData.DataLoaders.ChildrenLoader import ChildrenLoader
 from LabData.DataLoaders.CGMLoader import CGMLoader
 from statsmodels.formula.api import ols
 
-
-status_table = read_status_table()
-status_table = status_table[status_table.passed_qc].copy()
-
 ##returns the original 10K bins with the 10K index
 def read_plink_bins_10K_index():
+    status_table = read_status_table()
+    try:
+        status_table = status_table[status_table.passed_qc].copy()
+    except ValueError:  ##In case the genetics pipeline is running
+        status_table = status_table.dropna()
+        status_table = status_table[status_table.passed_qc].copy()
     unique_bin = read_original_plink_bins()
     unique_bin["sample"] = unique_bin.sample.to_pandas().apply(status_table.set_index('gencove_id').RegistrationCode.to_dict().get)
     return (unique_bin)

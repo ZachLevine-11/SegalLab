@@ -42,7 +42,11 @@ from LabData.DataLoaders.PRSLoader import PRSLoader
 #if you want to change these, you're going to need to change these everywhere in the code that they are used, i.e preprocess_data_loader
 ##only load the status table once and pass it around to save on memory
 status_table = read_status_table()
-status_table = status_table[status_table.passed_qc].copy()
+try:
+    status_table = status_table[status_table.passed_qc].copy()
+except ValueError: ##In case the genetics pipeline is running
+    status_table = status_table.dropna()
+    status_table = status_table[status_table.passed_qc].copy()
 raw_qtl_fname = "/net/mraid08/export/jasmine/zach/scores/score_results/SOMAscan/scores_all_raw.csv"
 corrected_qtl_fname_base = "/net/mraid08/export/jasmine/zach/prs_associations/corrected_loaders/"
 corrected_qtl_savename = "scores_all_corrected.csv"
@@ -223,12 +227,10 @@ if __name__ == "__main__":
     loaders_list = loaders_list ##from run_gwas
     ##needed to update the covariates
     ##only load the status table once and pass it around to save on memory
-    status_table = read_status_table()
-    status_table = status_table[status_table.passed_qc].copy()
     min_subject_threshold = 2000
     most_frequent_val_max_freq = 0.95
     redo_collect_correct_pqtls = False
-    redo_association_tests_prs = False
+    redo_association_tests_prs = True
     redo_association_tests_pqtl = False
     redo_prs_pqtl_associations = False
     correct_beforehand = False ##keep off to use the model with built in correction for age, gender, and PCS
