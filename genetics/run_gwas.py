@@ -41,8 +41,10 @@ import sys
 
 ##Not using Questionnaires (broken according to Nastya), DietLogging (not useful)
 ##Gut MB and Metab get done separately
+##Main GWAS Set
 loaders_list =  [CGMLoader, UltrasoundLoader, ItamarSleepLoader, HormonalStatusLoader, DEXALoader, RetinaScanLoader, GutMBLoader, SerumMetabolomicsLoader]
 
+##For prs assocs when we've already done CGM and Ultrasound
 #loaders_list = [SerumMetabolomicsLoader, GutMBLoader]
 
 sleepPhenos =  ["batch0.AHI.glm.linear", "batch0.MeanSatValue.glm.linear", "batch0.TotalNumberOfApneas.glm.linear"]
@@ -715,18 +717,22 @@ if __name__ == "__main__":
     sethandlers()
     ##only load the status table once and pass it around to save on memory
     status_table = read_status_table()
-    status_table = status_table[status_table.passed_qc].copy()
+    try:
+        status_table = status_table[status_table.passed_qc].copy()
+    except ValueError:  ##In case the genetics pipeline is running
+        status_table = status_table.dropna()
+        status_table = status_table[status_table.passed_qc].copy()
     shortened_name_table = {}
     ##Since encoding dummy variables also breaks file names because theres spaces in the factor levels, use random names for all gwases
     do_batched = True
     min_subject_threshold = 2000
     singleBatch = True ##much faster
-    redo_setup = True
+    redo_setup = False
     ##Can use the close relations pruning list from a previous GWAS run
     #exclusion_filter_fname = "/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/batch0.king.cutoff.out.id"
     exclusion_filter_fname = None
-    remake_batches = True
-    do_GWAS = True
+    remake_batches = False
+    do_GWAS = False
     do_noam = False
     lenbatches = 1
     do_renaming = False

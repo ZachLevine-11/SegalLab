@@ -32,7 +32,8 @@ def manyTestsbatched(batch, test, tailsTest, swap = False):
     ##the value at index var corresponds to whether var is a repeated column or not.
     duplicated_cols = pd.DataFrame(batch.columns.duplicated(), index = batch.columns)
     # exclude missing data by default
-    for var in batch.columns[batch.columns != "prs"]: ##for corrected_regression the index is 10K so prs is a column, ignore it and use it separately
+    operative_cols = [x for x in batch.columns if x not in ["prs"]]
+    for var in operative_cols: ##for corrected_regression the index is 10K so prs is a column, ignore it and use it separately
         ##if the column is not repeated. We have to do this before indexing the columns to avoid indexing errors.
         if sum(duplicated_cols[duplicated_cols.index == var][0]) == 0:
             ## if the data is non numeric or entirely missing, skip
@@ -58,21 +59,6 @@ def manyTestsbatched(batch, test, tailsTest, swap = False):
                     else:
                         test_res = mannwhitneyu(batch[batch.index == 2][var].dropna(), batch[batch.index != 2][var].dropna())
                     pvals[var] = float(test_res.pvalue)
-                elif test == "r":
-                    if ~swap:
-                        x = sm.add_constant(batch[var].dropna())
-                        y = batch.index[~batch[var].isna()] ##make sure the indices match
-                    else:
-                        ##also check for missing data in y now, as y has likely been grabbed from a data loader, rather than computer manually
-                        ##np logical_and does elementwise logical array comparison
-                        x = sm.add_constant(batch.iloc[np.array(np.logical_and(~batch[var].isna(), ~batch.index.isna())),].loc[:,var])
-                        y = batch.index[np.array(np.logical_and(~batch[var].isna(), ~batch.index.isna()))] ##make sure the indices match
-                        x,y=y,x
-                    model = sm.OLS(y,x).fit()
-                    ##test whether each coefficient is statistically different from zero
-                    test_ = model.f_test([1,0])
-                    pval = float(test_.pvalue)
-                    pvals[var] = pval
                 elif test == "corrected_regression":
                     batch_droppedna_this_var = batch.dropna(axis = 0, subset = [var]).merge(covars, left_index = True, right_index = True, how = "inner")
                     ##special characters in any variable names breaks hypothesis testing, so do the testing with a different name and then save under the original one
@@ -88,15 +74,6 @@ def manyTestsbatched(batch, test, tailsTest, swap = False):
                         pvals[var] = pval
                     except Exception as e: ##catch hypothesis testing errors
                         pvals[var] = None
-                elif test == "corr":
-                    ##swap is meaningless here
-                    x = batch.iloc[np.array(np.logical_and(~batch[var].isna(), ~batch.index.isna())),].loc[:,var]
-                    y = batch.index[np.array(np.logical_and(~batch[var].isna(), ~batch.index.isna()))] ##make sure the indices match
-                    if len(x) < 2 or len(y) < 2: ##another edge case
-                        pval = None
-                    else:
-                        pval = pearsonr(x, y)[1]
-                    pvals[var] = pval
         else: ##add None the same time as the number of repeats to allign the indexes with column names of the batch
             NumberofNones = sum(duplicated_cols[duplicated_cols.index == var][0]) + 1
             for NoneNumber in range(NumberofNones):

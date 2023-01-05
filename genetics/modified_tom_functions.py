@@ -89,17 +89,17 @@ def correct_all_covariates(loader, cluster=True, use_imputed_version = True, ind
 def save(result, filename):
     result.to_csv("/net/mraid08/export/jasmine/zach/prs_associations/" + filename)
 
-def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv", include_all = False):
+def getnotrawPrses():
+    theprses = PRSLoader().get_data().df.columns
+    theprses = list(set([x for x in theprses if not str(x).endswith("_raw")]))
+    return theprses
+
+def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv"):
     # Load all the PRS from 10K
     if cached: ##Much faster
         cached_list = list(pd.read_csv(dir + fileName).iloc[:, 1]) ##column 0 holds an aribitrary index, column 1 has the list we care about
         return cached_list
-    theprses = PRSLoader().get_data().df.columns
-    # removing duplicated index
-    theprses = list(set([x for x in theprses if not str(x).endswith("_raw")]))
-    # loading metadata for PRS
-    if include_all: ##include all columns in analysis
-        return theprses
+    mydata = PRSLoader().get_data().df.columns
     metadata_table = pd.read_excel(
         '/net/mraid08/export/genie/LabData/Data/10K/genetics/PRSice/SummaryStatistics/Nealelab/v3/UKBB_GWAS_Imputed_v3-File_Manifest_Release_20180731.xlsx',
         sheet_name='Manifest 201807', engine='openpyxl')

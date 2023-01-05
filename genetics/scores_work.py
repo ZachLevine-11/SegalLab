@@ -106,10 +106,7 @@ def make_test_all_loaders(loaders = None, loop = False, which = "PQTLS", test = 
             matrix_gen_method = loop_generate_prs_matrix
         else:
             matrix_gen_method = q_generate_prs_matrix
-        res_m_loader = matrix_gen_method(None, test = test, index_is_10k=None, duplicate_rows="mean",
-                                                 correct_for_age_gender=True, saveName=justname,
-                                                 tailsTest=None, usePath=None, prs_path=None,
-                                                 random_shuffle_prsLoader=False, use_prsLoader= which != "PQTLS")
+        res_m_loader = matrix_gen_method(test = test, duplicate_rows="last", saveName=justname, tailsTest=None,random_shuffle_prsLoader=False, use_prsLoader= which != "PQTLS")
         if which == "PQTLS":
             res_m_loader.to_csv(raw_matrices_save_path_pqtl + justname)
             print("Wrote: " + raw_matrices_save_path_pqtl + justname)
@@ -173,7 +170,7 @@ def loader_assoc_plot(stacked_mat):
 
 ##Stackmat should have fillNa = False
 def make_clustermaps(stackmat):
-    s_sig = stackmat.loc[(stackmat<0.01).any(1), (stackmat<0.01).any(0)]
+    s_sig = stackmat.loc[(stackmat<0.05).any(1), (stackmat<0.05).any(0)]
     thedict = PRSLoader().get_data().df_columns_metadata
     thedict.index = list(map(lambda thestr: "pvalue_" + thestr, thedict.index))
     thedict = thedict.h2_description.to_dict()
@@ -223,8 +220,7 @@ def report_pheno(pheno, descriptionmap, stacked):
 
 if __name__ == "__main__":
     sethandlers()
-    how = "q"
-    loaders_list = loaders_list ##from run_gwas
+    how = "loop"
     ##needed to update the covariates
     ##only load the status table once and pass it around to save on memory
     min_subject_threshold = 2000
@@ -252,9 +248,6 @@ if __name__ == "__main__":
         make_test_all_loaders(loaders = loaders_list, which = "PQTLS", loop = how == "loop")
     if redo_prs_pqtl_associations:
     ##last, treat the PQTLS as dataloaders and tests with PRSES
-        PQTLS_PRS_matrix = q_generate_prs_matrix(loader=None, index_is_10k=True,
-                                       test="corrected_regression", duplicate_rows="last", use_clustering=None, use_imputed=None,
-                                       correct_for_age_gender=True, saveName=corrected_qtl_savename,
-                                       get_data_args=None,
-                                       tailsTest=None, usePath=False, prs_path=None, random_shuffle_prsLoader=False, use_prsLoader = True)
+        PQTLS_PRS_matrix = q_generate_prs_matrix(test="corrected_regression", duplicate_rows="last",
+                                                 saveName=corrected_qtl_savename, tailsTest=None, random_shuffle_prsLoader=False, use_prsLoader = True)
         PQTLS_PRS_matrix.to_csv("/net/mraid08/export/jasmine/zach/prs_associations/prs_pqtl_matrix.csv")
