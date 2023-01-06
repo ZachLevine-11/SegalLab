@@ -220,7 +220,7 @@ def report_pheno(pheno, descriptionmap, stacked):
 
 if __name__ == "__main__":
     sethandlers()
-    how = "loop"
+    how = "q"
     ##needed to update the covariates
     ##only load the status table once and pass it around to save on memory
     min_subject_threshold = 2000

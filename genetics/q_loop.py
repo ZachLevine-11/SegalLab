@@ -1,5 +1,5 @@
 import numpy as np
-from LabQueue.qp import fakeqp as qp
+from LabQueue.qp import qp
 from LabUtils.addloglevels import sethandlers
 from GeneticsPipeline.config import gencove_logs_path
 import pandas as pd
@@ -17,7 +17,7 @@ def q_loop(test = "t", duplicate_rows = "last",  prs_from_loader = None, saveNam
     #os.chdir(gencove_logs_path)
     #sethandlers() ##should only set once, need a switch to not do if in a loop, but queing might fix this problem
     ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
-    with qp(jobname= saveName[0:2]+str(prs_id), max_u = 100, max_r = 100, _suppress_handlers_warning= True) as q:
+    with qp(jobname= saveName[0:2]+str(prs_id), delay_batch = 3,_suppress_handlers_warning= True) as q:
         q.startpermanentrun()
         batch_width = 400
         ##automatically grab tails or continuous data depending on what we want

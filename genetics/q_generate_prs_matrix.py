@@ -11,7 +11,7 @@ from modified_tom_functions import getnotrawPrses
 def q_generate_prs_matrix(test = "m", duplicate_rows = "mean", saveName = None, tailsTest = "rightLeft", random_shuffle_prsLoader = False, use_prsLoader = True):
     os.chdir("/net/mraid08/export/mb/logs/")
     #sethandlers()
-    with qp(jobname=saveName, delay_batch = 30, _suppress_handlers_warning =True) as q:
+    with qp(jobname=saveName, delay_batch = 10, _suppress_handlers_warning =True) as q:
         q.startpermanentrun()
         ## create the qp before doing anything with big variables, and delete everything that isn't required before calling qp
         if use_prsLoader:
