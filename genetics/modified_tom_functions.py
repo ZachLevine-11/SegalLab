@@ -9,57 +9,66 @@ import os
 from LabQueue.qp import fakeqp as qp
 from LabUtils.addloglevels import sethandlers
 
+
 ##fit a model to non missing data and subtract the predictons from the data you fit to
 ##in order to fit, x and y have to be alligned
 ##in order to
 def correct_single_covariate(y, age, gender):
-    if y.shape[1] > 1: ##sometimes there are extra null columns with the same name
-        y = pd.DataFrame(y.iloc[:,0]) ##making this a dataframe lets dtypes below return an array and not a single value
+    if y.shape[1] > 1:  ##sometimes there are extra null columns with the same name
+        y = pd.DataFrame(
+            y.iloc[:, 0])  ##making this a dataframe lets dtypes below return an array and not a single value
     os.chdir(gencove_logs_path)
     y_corrected = y
     predicted_y = np.zeros_like(y)
-    #predict metabolites from age and gender and subtract that from the values of original metabolites.
+    # predict metabolites from age and gender and subtract that from the values of original metabolites.
     ##but skip non numeric columns
-    if y.dtypes[0] != "float64": ##index at zero because technically the dtypes operator returns a series
+    if y.dtypes[0] != "float64":  ##index at zero because technically the dtypes operator returns a series
         return y
     else:
         pass
     if len(age) != 0 and len(gender) != 0 and len(y) != 0 and len(y.dropna()) != 0:
         inputx = pd.DataFrame(age.reset_index()["age"], gender.reset_index()["gender"])
-        model = LinearRegression().fit(inputx[np.logical_and(~y.isna(), np.array(~inputx.isna())).values] , y[np.logical_and(~y.isna(), np.array(~inputx.isna())).values])
-        predicted_y[np.logical_and(~y.isna(), np.array(~inputx.isna())).values] = model.predict(inputx.iloc[np.logical_and(~y.isna(), np.array(~inputx.isna())).values,]).flatten()
+        model = LinearRegression().fit(inputx[np.logical_and(~y.isna(), np.array(~inputx.isna())).values],
+                                       y[np.logical_and(~y.isna(), np.array(~inputx.isna())).values])
+        predicted_y[np.logical_and(~y.isna(), np.array(~inputx.isna())).values] = model.predict(
+            inputx.iloc[np.logical_and(~y.isna(), np.array(~inputx.isna())).values,]).flatten()
         # without_a_g is the value of the metabolites without age and gender
         y_corrected -= predicted_y
         ##return original metabolite
     return y_corrected
 
-def correct_all_covariates(loader, cluster=True, use_imputed_version = True, index_is_10k = False, get_data_args = None, use_precomputed_loader = False, precomputed_loader  = None):
-    pd.options.mode.use_inf_as_na = True ##treat inf as na values to save number of checks
+
+def correct_all_covariates(loader, cluster=True, use_imputed_version=True, index_is_10k=False, get_data_args=None,
+                           use_precomputed_loader=False, precomputed_loader=None):
+    pd.options.mode.use_inf_as_na = True  ##treat inf as na values to save number of checks
     os.chdir(gencove_logs_path)
-    #sethandlers()
-    with qp(q=['himem7.q'], jobname='clac_metabol', max_u=100, max_r=100, _suppress_handlers_warning= True) as q:
+    # sethandlers()
+    with qp(q=['himem7.q'], jobname='clac_metabol', max_u=100, max_r=100, _suppress_handlers_warning=True) as q:
         ##to speed up, do before doing anyting else
         q.startpermanentrun()
         if not use_precomputed_loader:
             if loader == SerumMetabolomicsLoader:
                 if cluster and not use_imputed_version:
-                    y = SerumMetabolomicsLoader().get_data(precomputed_loader_fname="metab_10k_data_RT_clustering").df.copy()
+                    y = SerumMetabolomicsLoader().get_data(
+                        precomputed_loader_fname="metab_10k_data_RT_clustering").df.copy()
                 if cluster and use_imputed_version:
                     y = pd.read_csv("/net/mraid08/export/jafar/Tom/imputed_cluster_indcol.csv")
-            else: ## Use a different loader
+            else:  ## Use a different loader
                 if get_data_args is None:
                     y = loader().get_data(study_ids=['10K']).df.copy()
                 else:
                     y = loader().get_data(get_data_args, study_ids=['10K']).df.copy()
                 ##log correction
-                y = y.apply(lambda x: np.log10(x) if np.issubdtype(x.dtype, np.number) else x)        # replacing infinite value with NaN
-                y.replace([np.inf, -np.inf], np.nan, inplace=True) ##doesn't really matter though because we already treat thse as the same thing in the pd options
+                y = y.apply(lambda x: np.log10(x) if np.issubdtype(x.dtype,
+                                                                   np.number) else x)  # replacing infinite value with NaN
+                y.replace([np.inf, -np.inf], np.nan,
+                          inplace=True)  ##doesn't really matter though because we already treat thse as the same thing in the pd options
                 # removing the columns with more than 50% Null
                 y = y.dropna(thresh=len(y) / 2, axis=1)
             if loader == SerumMetabolomicsLoader:
-                if not use_imputed_version: #imputed version already has the proper 10k index
+                if not use_imputed_version:  # imputed version already has the proper 10k index
                     y['RegistrationCode'] = list(map(lambda serum: '10K_' + serum.split('_')[0], y.index.values))
-            else: ##for other loaders
+            else:  ##for other loaders
                 if not index_is_10k:
                     y['RegistrationCode'] = list(map(lambda serum: '10K_' + serum.split('_')[0], y.index.values))
                 else:
@@ -71,33 +80,38 @@ def correct_all_covariates(loader, cluster=True, use_imputed_version = True, ind
         metadata = SubjectLoader().get_data()
         ga_metabdat = metadata.df.reset_index(level=-1)[['gender', 'age', 'yob']].copy()
         ##merge with age and gender
-        y = pd.merge(ga_metabdat, y, how='right', right_on='RegistrationCode',left_on='RegistrationCode')
+        y = pd.merge(ga_metabdat, y, how='right', right_on='RegistrationCode', left_on='RegistrationCode')
         # use linear regression in order to predict each metabolites value from age + gender
         res = {}
         numCols = len(y.columns[3:])
         i = 1
         for c in y.columns[3:]:
             print("Correcting: " + str(c) + ", " + str(i) + "/" + str(numCols))
-            #predict the covariance of age and gender on the metabolitesl
+            # predict the covariance of age and gender on the metabolitesl
             # output: metabolites table with the value after removing the covariance of age and gender
             res[c] = q.method(correct_single_covariate, (y[[c]], y[["age"]], y[["gender"]]))
             i += 1
         wait_ony = {c: q.waitforresult(v) for c, v in res.items()}
-    theRes = pd.concat(wait_ony.values(), axis  = 1) ##we don't care aout age and gender
+    theRes = pd.concat(wait_ony.values(), axis=1)  ##we don't care aout age and gender
     return theRes
+
 
 def save(result, filename):
     result.to_csv("/net/mraid08/export/jasmine/zach/prs_associations/" + filename)
+
 
 def getnotrawPrses():
     theprses = PRSLoader().get_data().df.columns
     theprses = list(set([x for x in theprses if not str(x).endswith("_raw")]))
     return theprses
 
-def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv"):
+
+def getsigunique(cached=True, dir="/net/mraid08/export/jasmine/zach/prs_associations/",
+                 fileName="getsigunique_cache.csv"):
     # Load all the PRS from 10K
-    if cached: ##Much faster
-        cached_list = list(pd.read_csv(dir + fileName).iloc[:, 1]) ##column 0 holds an aribitrary index, column 1 has the list we care about
+    if cached:  ##Much faster
+        cached_list = list(pd.read_csv(dir + fileName).iloc[:,
+                           1])  ##column 0 holds an aribitrary index, column 1 has the list we care about
         return cached_list
     mydata = PRSLoader().get_data().df.columns
     metadata_table = pd.read_excel(
@@ -477,7 +491,9 @@ def getsigunique(cached = True, dir = "/net/mraid08/export/jasmine/zach/prs_asso
     sig = high_sig.index[high_sig['phen_group_bool']].to_list()
     # removing duplicated of PRS's name
     siguniqe = list(dict.fromkeys(sig))
-    return(siguniqe)
+    return (siguniqe)
 
-def write_getsigunique_cache(dir = "/net/mraid08/export/jasmine/zach/prs_associations/", fileName = "getsigunique_cache.csv", include_all = False):
-    pd.Series(getsigunique(cached = False, include_all = include_all)).to_csv(dir + fileName)
+
+def write_getsigunique_cache(dir="/net/mraid08/export/jasmine/zach/prs_associations/",
+                             fileName="getsigunique_cache.csv", include_all=False):
+    pd.Series(getsigunique(cached=False, include_all=include_all)).to_csv(dir + fileName)
