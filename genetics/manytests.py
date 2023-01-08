@@ -20,7 +20,8 @@ def manyTestsbatched(batch, test, tailsTest, swap=False):
     batchtypes = dict(batch.dtypes)
     if test == "corrected_regression":
         covars = pd.read_csv("/net/mraid08/export/jasmine/zach/height_gwas/covariates_with_age_gender.txt",
-                             sep="\t")  # if using plink1 covariates, need to .drop("FID", axis=1)
+                             sep="\t",
+                             engine = "python")  # if using plink1 covariates, need to .drop("FID", axis=1)
         status_table = read_status_table()
         try:
             status_table = status_table[status_table.passed_qc].copy()

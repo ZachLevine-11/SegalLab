@@ -251,7 +251,7 @@ if __name__ == "__main__":
     min_subject_threshold = 2000
     most_frequent_val_max_freq = 0.95
     redo_collect_correct_pqtls = False
-    redo_association_tests_prs = False
+    redo_association_tests_prs = True
     redo_association_tests_pqtl = False
     redo_prs_pqtl_associations = False
     correct_beforehand = False  ##keep off to use the model with built in correction for age, gender, and PCS
