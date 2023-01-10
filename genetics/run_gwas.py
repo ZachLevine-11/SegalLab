@@ -35,7 +35,9 @@ from LabUtils.addloglevels import sethandlers
 from GeneticsPipeline.config import plink19_bin, plink2_bin, qp_running_dir
 from pandas_plink import write_plink1_bin
 from functools import reduce
+from matplotlib import rcParams
 import matplotlib.pyplot as plt
+import seaborn as sns
 from itertools import chain, combinations
 import sys
 
@@ -424,7 +426,6 @@ def update_covariates(dir="/net/mraid08/export/jasmine/zach/height_gwas/", statu
             ["IID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "gender", "age"]]
     save_covar_data.to_csv(dir + "covariates_with_age_gender.txt", sep="\t", index=False, header=True)
 
-
 def existsAlready(colName, resultDir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/",
                   use_short_names=False):
     if not use_short_names:
@@ -676,7 +677,6 @@ def get_broken_keys_medications(key_list):
     key_list = np.array(key_list)
     return list(key_list[key_list != list(map(lambda key: key.replace("medication_{", ""), key_list))])
 
-
 ##Use a hybrid (generated) but also unique index for each SNP because we don't have rsids for many of them
 ##hybrid index by default is "CHROM":"POS":"REF":"ALT"
 def generate_hybrid_index(hits_df, cols=["CHROM", "POS", "REF", "ALT"]):
@@ -743,7 +743,6 @@ def stack_our_gwases(use_clumped=True, onlythesecols=None):
     ans = ans.rename({"P": "p_ours"}, axis=1)
     ans = ans.sort_values("p_ours")
     return ans
-
 
 def merge_with_pheno_team(use_clumped=True):
     ans = stack_our_gwases(use_clumped=use_clumped, onlythesecols=read_loader_in(CGMLoader).columns)
@@ -830,21 +829,23 @@ def get_duplicate_ids(qc_dir="/net/mraid08/export/jasmine/zach/height_gwas/all_g
     extract_duplicate_id_snps_cmd = 'cat ' + qc_dir + 'all_snps.snplist' + ' | sort | uniq -d > ' + qc_dir + outfilename
     ShellCommandsExecute().run(extract_duplicate_id_snps_cmd, "get_duplicate_snpids")
 
-
 def wasGwasedToday(fn):
     return datetime.datetime.fromtimestamp(os.path.getmtime(fn)).day == datetime.date.today().day
-
 
 ##clumping procedure for gwases with at least one significant hit
 def clump(qc_dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_extra_qc/",
           gwas_results_dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results/",
           clump_dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_results_clumped/",
-          duplicate_id_snps_fname="duplicate_id_snps.snplist"):
+          duplicate_id_snps_fname="duplicate_id_snps.snplist",
+          onlyToday = False):
     print("Clumping from ", gwas_results_dir, " clumping into directory ", clump_dir)
     all_gwases = [f for f in os.listdir(gwas_results_dir) if isfile(join(gwas_results_dir, f))]
     alreadyclumped = list(
         map(lambda fname: fname.split(".")[1], [f for f in os.listdir(clump_dir) if isfile(join(clump_dir, f))]))
-    gwases_from_today = [x for x in all_gwases if wasGwasedToday(gwas_results_dir + x)]
+    if onlyToday:
+        gwases_from_today = [x for x in all_gwases if wasGwasedToday(gwas_results_dir + x)]
+    else:
+        gwases_from_today = all_gwases
     numGwases = len(all_gwases)  ##correct for all the GWASES that we did, not just the ones from each loader.
     res = {}
     os.chdir(qp_running_dir)
@@ -876,6 +877,34 @@ def clump(qc_dir="/net/mraid08/export/jasmine/zach/height_gwas/all_gwas/gwas_ext
                                 lambda: ShellCommandsExecute().run(cmd=clump_cmd, cmd_name=long_filename.split(".")[1]))
         res = {k: q.waitforresult(v) for k, v in res.items()}
 
+def extract_clumped_rank_dist_specific_loader(loader):
+    temp, rank = summarize_gwas(list(read_loader_in(loader).columns), use_clumped = True)
+    rank.index = list(map(lambda theStr: theStr.split("batch0.")[-1].split(".clumped")[0].replace("_", " "),
+                          rank.index))
+    return rank
+
+def make_clumped_rank_plot(loader):
+    rcParams.update({"figure.autolayout": True})
+    rank = extract_clumped_rank_dist_specific_loader(loader)
+    sns.barplot(rank.index, rank.values, color = "blue")
+    title = "GWAS hits for " + str(loader).split(".")[-2].split("Loader")[0]
+    plt.title(title)
+    plt.xticks(rotation = 45, ha = "right")
+    plt.show()
+
+def gwasHitsDistPlot():
+    singleWideHits = pd.read_csv("~/Desktop/backup_rank_all.csv").set_index("Unnamed: 0")
+    g, multiWideHits = summarize_gwas(use_clumped = True)
+    theBins = range(0, 200, 5)
+    sns.set_theme()
+    plt.hist(singleWideHits, color = "blue", alpha = 0.5, bins = theBins, label = "# of Genome-Wide Significant Hits")
+    plt.hist(multiWideHits, color = "darkblue", label = "# of Multi-Trait Significant Hits", bins = theBins)
+    plt.yscale("log")
+    plt.legend()
+    plt.xlabel("Number of Hits")
+    plt.ylabel("Number of Traits")
+    plt.title("GWAS: Distribution of Significant Hits")
+    plt.show()
 
 if __name__ == "__main__":
     ##avoid breaking scores_work and other modules that use the queue and import this file
@@ -903,9 +932,9 @@ if __name__ == "__main__":
     do_renaming = False
     redo_genetics_qc = False
     ldmethod = "clump"
-    do_clumping = False
+    do_clumping = True
     use_pfilter = False
-    pass_cmd = False
+    pass_cmd = True
     howmanyPCs = 10
     redo_get_duplicate_ids = False  ##for clumping, right now it's just the ID "."
     if redo_genetics_qc:

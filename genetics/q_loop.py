@@ -62,6 +62,7 @@ def q_loop(test="t", duplicate_rows="last",
                 fundict[i] = q.method(manyTestsbatched,
                                       (dataprs_prs_index.iloc[:, list(batch_ids) + [prs_id]],
                                        test, tailsTest, False))
+                ##will never have i > 0 if there are less columns than the batch width
             else:  ##otherwise even for corrected regression since we only have one batch the prs column is already included in batch_ids
                 fundict[i] = q.method(manyTestsbatched,
                                       (dataprs_prs_index.iloc[:, batch_ids],

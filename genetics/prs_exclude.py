@@ -5,7 +5,6 @@ from LabData.DataLoaders.FamilyMedicalConditionsLoader import FamilyMedicalCondi
 from modified_tom_functions import getsigunique
 import json
 
-
 def EnglishSicknesstoICDCode(english_str, medData):
     lookup_dict = medData.df_columns_metadata.set_index("english_name").ICD11Code.to_dict()
     ##Match to any word in a key
@@ -14,7 +13,6 @@ def EnglishSicknesstoICDCode(english_str, medData):
             thecode = icdcode
             return thecode
     return None
-
 
 def excludeBasedOnPersonalMedicalConditions(whattheyhave, medData):
     medicalConditions = medData.df.reset_index()
@@ -25,7 +23,6 @@ def excludeBasedOnPersonalMedicalConditions(whattheyhave, medData):
         ##We have a match
         return list(
             medicalConditions.loc[medicalConditions["medical_condition"] == thecode, "RegistrationCode"].unique())
-
 
 def prsToExcluded_people(prsName, h_2_description_dict):
     prsmeaning = h_2_description_dict[prsName]

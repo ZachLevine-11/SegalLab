@@ -161,7 +161,6 @@ def stack_matrices_and_bonferonni_correct(results_dir=raw_matrices_save_path_prs
     else:
         return res_corrected
 
-
 def loader_assoc_plot(stacked_mat):
     loader_assoc_map = {}
     potential_loaders = list(set(stacked_mat.index.get_level_values(1)))
@@ -185,19 +184,40 @@ def loader_assoc_plot(stacked_mat):
     plt.title("Significant Associations by Loader, Normalized")
     plt.show()
 
+def make_top_sig_assocs_table(stackmat, n):
+    pvals = []
+    traits = []
+    prses = []
+    thedict = PRSLoader().get_data().df_columns_metadata.h2_description.to_dict()
+    stackmat = stackmat.loc[(stackmat < 0.05).any(1), (stackmat < 0.05).any(0)]
+    for i in range(len(stackmat)):
+        for j in range(len(stackmat.columns)):
+            if stackmat.iloc[i, j] < 0.05:
+                traits.append(stackmat.index[i][0])
+                prses.append(thedict[stackmat.columns[j].split("pvalue_")[-1]])
+                pvals.append(stackmat.iloc[i, j])
+    ans = pd.concat([pd.Series(traits),pd.Series(prses), pd.Series(pvals)], axis = 1)
+    ans.columns = ["10K Trait", "UKBB PRS", "P"]
+    ans = ans.dropna(subset = ["UKBB PRS"]) ##Drop associations if the PRS has no interpretable meaning
+    ans = ans.sort_values("P").iloc[0:n, :]
+    ans.to_csv("~/Desktop/PRS_assocs_sig.csv")
+    return ans
 
 ##Stackmat should have fillNa = False
 def make_clustermaps(stackmat):
-    s_sig = stackmat.loc[(stackmat < 0.05).any(1), (stackmat < 0.05).any(0)]
     thedict = PRSLoader().get_data().df_columns_metadata
     thedict.index = list(map(lambda thestr: "pvalue_" + thestr, thedict.index))
     thedict = thedict.h2_description.to_dict()
-    s_sig = s_sig.rename(dict(zip(list(s_sig.columns), [thedict.get(col) for col in s_sig.columns])), axis=1)
-    mapper = list(map(lambda potential: type(potential) == str, s_sig.columns))
-    s_sig_only_useful = s_sig.loc[:, mapper]
-    s_sig_only_useful.columns = list(map(lambda thestr: thestr[0:20], s_sig_only_useful.columns))
-    for theval in s_sig_only_useful.index.get_level_values(1).unique():
-        sns.clustermap(-np.log10(s_sig_only_useful.loc[s_sig_only_useful.index.get_level_values(1) == theval, :]),
+    stackmat = stackmat.rename(dict(zip(list(stackmat.columns),
+                                        [thedict.get(col) for col in stackmat.columns])),axis=1)
+    mapper = list(map(lambda potential: type(potential) == str, stackmat.columns))
+    stackmat = stackmat.loc[:, mapper]
+    stackmat.columns = list(map(lambda thestr: thestr[0:20], stackmat.columns))
+    for theval in stackmat.index.get_level_values(1).unique():
+        print("Now generating ", theval)
+        s_sig = stackmat.loc[stackmat.index.get_level_values(1) == theval, :]
+        s_sig = s_sig.loc[(s_sig < 0.05).any(1), (s_sig < 0.05).any(0)]
+        sns.clustermap(-np.log10(s_sig),
                        cmap="Blues")
         plt.savefig("/home/zacharyl/Desktop/scores_figures/" + theval + ".png")
 
